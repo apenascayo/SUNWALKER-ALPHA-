@@ -1,10 +1,7 @@
 (() => {
   // Alpha 1.8: efeitos sonoros de combate, musica aleatoria e feedback visual das habilidades.
-  const EFFECTS = {
-    shock: "assets/sfx/danoeletrico.mp3",
-    bossSword: "assets/sfx/sowrdinimigo.mp3",
-    arrow: "assets/sfx/arrow.mp3"
-  };
+  document.title = "Sunwalker — Alpha 1.8";
+  const EFFECTS = { shock: "assets/sfx/danoeletrico.mp3", bossSword: "assets/sfx/sowrdinimigo.mp3", arrow: "assets/sfx/arrow.mp3" };
   const SHOCK_DURATION = 9000;
   let shockTimers = new Map();
   let lastPlayerDead = false;
@@ -19,7 +16,6 @@
     } catch (_) {}
   }
 
-  // Dano eletrico: cada aplicacao mantem o efeito por 9 segundos.
   const originalDamageEnemy = window.damageEnemy;
   if (typeof originalDamageEnemy === "function") {
     window.damageEnemy = function(enemy, damage, kx, ky, now, source) {
@@ -32,24 +28,26 @@
         if (enemy) {
           enemy.lightningUntil = Math.max(enemy.lightningUntil || 0, now + SHOCK_DURATION);
           clearTimeout(shockTimers.get(enemy.id));
-          shockTimers.set(enemy.id, setTimeout(() => {
-            enemy._alpha18ShockSound = false;
-          }, SHOCK_DURATION));
+          shockTimers.set(enemy.id, setTimeout(() => { enemy._alpha18ShockSound = false; }, SHOCK_DURATION));
         }
       }
       return result;
     };
   }
 
-  // Detecta os efeitos de choque criados pelo sistema da habilidade e garante o som.
+  // O efeito visual/dano de choque da habilidade e mantido por 9 segundos.
   setInterval(() => {
     try {
       if (typeof enemies === "undefined") return;
       const now = performance.now();
       for (const enemy of enemies) {
-        if (enemy.lightningUntil && enemy.lightningUntil > now && !enemy._alpha18ShockSound) {
-          enemy._alpha18ShockSound = true;
-          effect("shock", 0.65);
+        if (enemy.lightningUntil && enemy.lightningUntil > now) {
+          if (!enemy._alpha18ShockSound) {
+            enemy._alpha18ShockSound = true;
+            effect("shock", 0.65);
+          }
+          // Renova em blocos de 1s para impedir que a duracao original de 3s encerre o efeito.
+          enemy.lightningUntil = Math.max(enemy.lightningUntil, now + 1000);
           clearTimeout(shockTimers.get(enemy.id));
           shockTimers.set(enemy.id, setTimeout(() => { enemy._alpha18ShockSound = false; }, SHOCK_DURATION));
         }
@@ -57,7 +55,6 @@
     } catch (_) {}
   }, 120);
 
-  // Som especifico quando um boss acerta o jogador.
   const originalReceiveDamage = window.receivePlayerDamage;
   if (typeof originalReceiveDamage === "function") {
     window.receivePlayerDamage = function(amount, enemy, now) {
@@ -68,21 +65,17 @@
     };
   }
 
-  // Som da flecha no momento do disparo do arqueiro.
   const originalUpdateEnemyCombat = window.updateEnemyCombat;
   if (typeof originalUpdateEnemyCombat === "function") {
     window.updateEnemyCombat = function(enemy, now) {
       const beforePhase = enemy && enemy.attackPhase;
       const result = originalUpdateEnemyCombat.apply(this, arguments);
-      if (enemy && enemy.type === "archer" && beforePhase === "windup" && enemy.attackPhase === "strike") {
-        effect("arrow", 0.7);
-      }
+      if (enemy && enemy.type === "archer" && beforePhase === "windup" && enemy.attackPhase === "strike") effect("arrow", 0.7);
       return result;
     };
   }
 
-  // Musicas de batalha: escolhe uma faixa aleatoria perto do fim da atual.
-  // Isso preserva o mecanismo base e evita repetir sempre a mesma sequencia.
+  // Proxima musica de batalha: indice aleatorio perto do final da faixa.
   setInterval(() => {
     try {
       if (!musicState.audio || musicState.audio.paused || !musicState.audio.duration) return;
@@ -92,7 +85,7 @@
     } catch (_) {}
   }, 250);
 
-  // Ao morrer, muda a ordem/indice para a proxima vida começar em outra faixa.
+  // Ao morrer, reinicia a musica e escolhe outro ponto da lista.
   setInterval(() => {
     try {
       if (typeof player === "undefined") return;
@@ -128,11 +121,9 @@
     el.innerHTML = items.map(text => `<div style="padding:7px 10px;background:rgba(8,12,16,.88);border:1px solid rgba(200,220,235,.75);border-radius:6px;color:#f5ead0;box-shadow:0 3px 12px rgba(0,0,0,.4)">${text}</div>`).join("");
   }
 
-  // Atualiza o feedback quando a compra acontece, sem alterar o sistema de compra.
   setInterval(refreshSkillStatus, 300);
   refreshSkillStatus();
 
-  // Reforca o contador de wave caso algum outro overlay o tenha ocultado.
   function ensureWaveCounter() {
     let el = document.getElementById("waveStatus");
     if (!el) {
