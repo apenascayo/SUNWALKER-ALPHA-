@@ -19,23 +19,28 @@ const Input = {
     window.addEventListener("keyup", e => this.keys.delete(e.key.toLowerCase()));
 
     window.addEventListener("mousedown", e => {
-      // Elementos de interface (principalmente sliders) devem manter o comportamento nativo.
-      // Antes, o preventDefault global cancelava a interação com os inputs range.
+      // Controles da interface usam o comportamento nativo do navegador.
       const target = e.target;
       const isInterfaceControl = target && (
         target.matches?.("input, button, label, select, textarea") ||
         target.closest?.("input, button, label, select, textarea")
       );
-
       if (isInterfaceControl) return;
 
-      // Garante foco do teclado mesmo rodando dentro de um iframe.
       try { window.focus(); } catch (_) {}
       this.updateMousePosition(e);
       this.mouseButtons.add(e.button);
       this.mousePressed.add(e.button);
       if (e.button === 0 || e.button === 2) e.preventDefault();
     });
+
+    // Mantém sliders e outros controles responsivos em mouse, toque e caneta.
+    window.addEventListener("pointerdown", e => {
+      const target = e.target;
+      const isInterfaceControl = target && target.closest?.("input, button, label, select, textarea");
+      if (isInterfaceControl) return;
+      try { window.focus(); } catch (_) {}
+    }, { passive: true });
 
     window.addEventListener("pointerenter", () => { try { window.focus(); } catch (_) {} });
     document.addEventListener("mouseenter", () => { try { window.focus(); } catch (_) {} });
