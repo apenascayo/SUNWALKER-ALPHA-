@@ -10,10 +10,8 @@
     "assets/music/Vaqueiro Entoada.wav",
     "assets/music/Vaqueiro Entoada 2.wav"
   ];
-
   let musicBag = [];
   let lastPlayedIndex = -1;
-
   function refillMusicBag() {
     musicBag = Array.from({ length: COMBAT_MUSIC_TRACKS.length }, (_, i) => i);
     for (let i = musicBag.length - 1; i > 0; i--) {
@@ -25,14 +23,12 @@
       [musicBag[0], musicBag[swapIndex]] = [musicBag[swapIndex], musicBag[0]];
     }
   }
-
   function getNextMusicIndex() {
     if (!musicBag.length) refillMusicBag();
     const next = musicBag.shift();
     lastPlayedIndex = next;
     return next;
   }
-
   function ensureNowPlaying() {
     let el = document.getElementById("sunwalkerNowPlaying");
     if (!el) {
@@ -47,7 +43,6 @@
     el.onclick = null;
     return el;
   }
-
   function playCombatMusicTrack(index) {
     if (typeof musicState === "undefined" || !musicState.audio) return;
     const safeIndex = ((index % COMBAT_MUSIC_TRACKS.length) + COMBAT_MUSIC_TRACKS.length) % COMBAT_MUSIC_TRACKS.length;
@@ -60,22 +55,18 @@
       playPromise.then(() => { musicState.playBlocked = false; }).catch(() => { musicState.playBlocked = true; });
     }
   }
-
   function playNextMusicTrack() {
     if (typeof musicState === "undefined") return;
     playCombatMusicTrack(getNextMusicIndex());
   }
-
   function changeMusicNow() {
     if (typeof musicState === "undefined" || !musicState.audio) return;
     musicState.audio.pause();
     musicState.audio.currentTime = 0;
     playNextMusicTrack();
   }
-
   window.playNextMusicTrack = playNextMusicTrack;
   window.sunwalkerChangeMusic = changeMusicNow;
-
   window.startMusic = function() {
     if (musicState.started) return;
     if (typeof ensureMusicVolume === "function") ensureMusicVolume();
@@ -97,6 +88,11 @@
     refillMusicBag();
     playNextMusicTrack();
   };
-
   setInterval(() => { try { ensureNowPlaying(); } catch (_) {} }, 1000);
+
+  // Carrega os controles finais da Alpha 1.8.5 depois dos scripts base.
+  const script = document.createElement("script");
+  script.src = "js/alpha185-systems.js?v=185";
+  script.defer = false;
+  document.body.appendChild(script);
 })();
