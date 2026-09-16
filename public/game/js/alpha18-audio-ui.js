@@ -96,6 +96,25 @@
     } catch (_) {}
   }
 
+  function changeMusicNow() {
+    try {
+      if (typeof musicState === "undefined" || !musicState.audio) return;
+      chooseRandomMusicIndex();
+      musicState.audio.pause();
+      musicState.audio.currentTime = 0;
+      if (typeof playNextMusicTrack === "function") playNextMusicTrack();
+    } catch (_) {}
+  }
+
+  function setupMusicClick() {
+    const el = document.getElementById("sunwalkerNowPlaying");
+    if (!el || el.dataset.musicClickBound === "true") return;
+    el.dataset.musicClickBound = "true";
+    el.title = "Clique para trocar a música";
+    el.style.cursor = "pointer";
+    el.addEventListener("click", changeMusicNow);
+  }
+
   setInterval(() => {
     try {
       if (!musicState.audio || musicState.audio.paused || !musicState.audio.duration) return;
@@ -119,7 +138,6 @@
     } catch (_) {}
   }, 100);
 
-  // Mantem o aviso da musica pequeno e fixo no canto inferior esquerdo.
   function styleMusicModal() {
     const el = document.getElementById("sunwalkerNowPlaying");
     if (!el) return;
@@ -136,10 +154,12 @@
     el.style.textAlign = "left";
     el.style.borderRadius = "5px";
     el.style.opacity = el.style.opacity || "0";
+    el.style.cursor = "pointer";
+    el.title = "Clique para trocar a música";
+    setupMusicClick();
   }
   setInterval(styleMusicModal, 250);
 
-  // Status das habilidades compradas.
   function createSkillStatus() {
     if (document.getElementById("alpha18SkillStatus")) return;
     const el = document.createElement("div");
@@ -161,7 +181,6 @@
   setInterval(refreshSkillStatus, 300);
   refreshSkillStatus();
 
-  // Modo Deus para testes: vida e dinheiro infinitos, protegido por senha FTK.
   function isGodMode() { return localStorage.getItem(GOD_KEY) === "true"; }
   function refreshGodResources() {
     if (!isGodMode() || typeof player === "undefined" || !player) return;
@@ -169,63 +188,16 @@
     player.coins = 999999;
   }
 
+  // A interface do modo Deus é criada no HTML principal.
+  // Mantemos este fallback apenas para versões antigas da página.
   function ensureGodModeUI() {
     const settings = document.querySelector("#settingsOverlay .settings-modal");
     if (!settings || document.getElementById("godModeSetting")) return;
-    const group = document.createElement("div");
-    group.id = "godModeSetting";
-    group.className = "setting-group";
-    group.innerHTML = `
-      <h3>MODO DEUS — TESTES</h3>
-      <p style="margin:6px 0;color:#bdb7a8;font-size:12px">Vida infinita e dinheiro infinito para testes da Alpha.</p>
-      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
-        <input id="godModePassword" type="password" maxlength="3" placeholder="Senha" autocomplete="off" style="width:90px;padding:7px">
-        <button id="godModeActivate" type="button">ATIVAR</button>
-        <button id="godModeDeactivate" type="button" style="display:none">DESATIVAR</button>
-      </div>
-      <div id="godModeStatus" style="margin-top:7px;font-size:12px"></div>
-    `;
-    const debugGroup = [...settings.querySelectorAll(".setting-group")].find(el => /DEBUG/i.test(el.textContent));
-    if (debugGroup) settings.insertBefore(group, debugGroup);
-    else settings.insertBefore(group, settings.lastElementChild);
-
-    const password = group.querySelector("#godModePassword");
-    const activate = group.querySelector("#godModeActivate");
-    const deactivate = group.querySelector("#godModeDeactivate");
-    const status = group.querySelector("#godModeStatus");
-
-    function updateUI() {
-      const active = isGodMode();
-      status.textContent = active ? "MODO DEUS: ATIVO" : "MODO DEUS: DESATIVADO";
-      status.style.color = active ? "#7ee787" : "#bdb7a8";
-      activate.style.display = active ? "none" : "inline-block";
-      password.style.display = active ? "none" : "inline-block";
-      deactivate.style.display = active ? "inline-block" : "none";
-    }
-    activate.addEventListener("click", () => {
-      if (password.value.trim().toUpperCase() !== "FTK") {
-        status.textContent = "SENHA INCORRETA";
-        status.style.color = "#e06c75";
-        password.focus();
-        return;
-      }
-      localStorage.setItem(GOD_KEY, "true");
-      password.value = "";
-      refreshGodResources();
-      updateUI();
-    });
-    password.addEventListener("keydown", e => { if (e.key === "Enter") activate.click(); });
-    deactivate.addEventListener("click", () => {
-      localStorage.removeItem(GOD_KEY);
-      updateUI();
-    });
-    updateUI();
   }
 
   setInterval(() => { ensureGodModeUI(); refreshGodResources(); }, 250);
   ensureGodModeUI();
 
-  // Vegetacao seca e ossos humanos: desenhados depois do piso e antes das entidades.
   const scenery = [
     { type: "cactus", x: 9, y: 13, scale: 1.0 }, { type: "cactus", x: 22, y: 78, scale: .82 },
     { type: "cactus", x: 36, y: 20, scale: 1.15 }, { type: "cactus", x: 67, y: 13, scale: .9 },
@@ -239,7 +211,6 @@
 
   function drawScenery() {
     if (typeof ctx === "undefined" || typeof Camera === "undefined") return;
-    const now = performance.now();
     for (const obj of scenery) {
       const s = Camera.worldToScreen(obj.x, obj.y);
       if (s.x < -80 || s.x > canvas.width + 80 || s.y < -100 || s.y > canvas.height + 100) continue;
@@ -291,16 +262,12 @@
   function installSceneryHook() {
     if (mapWrapped || typeof window.drawMap !== "function") return;
     const baseMap = window.drawMap;
-    window.drawMap = function() {
-      baseMap.apply(this, arguments);
-      drawScenery();
-    };
+    window.drawMap = function() { baseMap.apply(this, arguments); drawScenery(); };
     mapWrapped = true;
   }
   setInterval(installSceneryHook, 100);
   installSceneryHook();
 
-  // Restaura o contador no layout antigo do HUD.
   function ensureWaveCounter() {
     const el = document.getElementById("waveStatus");
     if (!el) return null;
