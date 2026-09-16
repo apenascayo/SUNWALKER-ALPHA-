@@ -9,7 +9,7 @@
 
   let rollRequested = false;
   let spaceActionPressed = false;
-  const ROLL_DURATION = 260;
+  const ROLL_DURATION = 340;
   const ROLL_DISTANCE = () => (CONFIG.dashDistance || 1.6) * 1.20;
 
   window.addEventListener("keydown", event => {
@@ -68,6 +68,7 @@
     };
     player.state = "rolling";
     player.isRunning = false;
+    player.invulnerableUntil = Math.max(player.invulnerableUntil || 0, now + ROLL_DURATION);
     player.dashCount++;
     player.dashRegenAt = player.dashCount >= 5 ? now + 30000 : 0;
     player.dashCooldownUntil = now + CONFIG.dashCooldown;
@@ -92,6 +93,8 @@
       const targetMoved = player.roll.distance * (player.roll.elapsed / ROLL_DURATION);
       const step = Math.max(0, targetMoved - player.roll.moved);
       player.roll.moved += step;
+
+      // Deslocamento real no mundo: Carlos avança durante toda a rolagem.
       player.x += player.roll.dirX * step;
       player.y += player.roll.dirY * step;
       player.x = Math.max(0.15, Math.min(CONFIG.MAP_WIDTH - 0.15, player.x));
@@ -155,5 +158,5 @@
     return originalDrawCharacterBody(x, y, dir, baseScale, { ...opts, defending: false });
   };
 
-  console.info("[Sunwalker] Alpha 1.7 controls: Shift=Rolagem, Espaco=Item, bloqueio removido.");
+  console.info("[Sunwalker] Alpha 1.7 controls: Shift=Rolagem real, Espaco=Item, bloqueio removido.");
 })();
