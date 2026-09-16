@@ -7,7 +7,6 @@
   let shockTimers = new Map();
   let lastPlayerDead = false;
   let lastWave = null;
-  let lastMusicIndex = -1;
 
   function effect(name, volume = 0.7) {
     try {
@@ -84,89 +83,36 @@
     };
   }
 
-  function chooseRandomMusicIndex() {
-    try {
-      const total = Array.isArray(MUSIC_TRACKS) ? MUSIC_TRACKS.length : 0;
-      if (!total) return;
-      if (total === 1) { musicState.index = 0; lastMusicIndex = 0; return; }
-      let next = Math.floor(Math.random() * total);
-      if (next === lastMusicIndex) next = (next + 1 + Math.floor(Math.random() * (total - 1))) % total;
-      lastMusicIndex = next;
-      musicState.index = next;
-    } catch (_) {}
-  }
-
+  // A troca e a sequência das músicas agora ficam centralizadas em alpha17-combat-music.js.
+  // Não sorteamos novamente aqui para não quebrar o ciclo embaralhado de 5 faixas.
   function changeMusicNow() {
     try {
       if (typeof musicState === "undefined" || !musicState.audio) return;
-      chooseRandomMusicIndex();
-      musicState.audio.pause();
-      musicState.audio.currentTime = 0;
-      if (typeof playNextMusicTrack === "function") playNextMusicTrack();
+      if (typeof window.sunwalkerChangeMusic === "function") window.sunwalkerChangeMusic();
+      else if (typeof window.playNextMusicTrack === "function") window.playNextMusicTrack();
     } catch (_) {}
   }
 
-  function setupMusicClick() {
-    const el = document.getElementById("sunwalkerNowPlaying");
-    if (!el || el.dataset.musicClickBound === "true") return;
-    el.dataset.musicClickBound = "true";
-    el.title = "Clique para trocar a música";
-    el.style.cursor = "pointer";
-    el.addEventListener("click", changeMusicNow);
-  }
-
-  setInterval(() => {
-    try {
-      if (!musicState.audio || musicState.audio.paused || !musicState.audio.duration) return;
-      if (musicState.audio.duration - musicState.audio.currentTime < 1.5) chooseRandomMusicIndex();
-    } catch (_) {}
-  }, 250);
-
-  setInterval(() => {
-    try {
-      if (typeof player === "undefined") return;
-      const dead = player.isDead();
-      if (dead && !lastPlayerDead) {
-        chooseRandomMusicIndex();
-        if (musicState.audio) {
-          musicState.audio.pause();
-          musicState.audio.currentTime = 0;
-          if (typeof playNextMusicTrack === "function") playNextMusicTrack();
-        }
-      }
-      lastPlayerDead = dead;
-    } catch (_) {}
-  }, 100);
-
-  function styleMusicModal() {
+  // Elemento antigo de identificação da faixa: permanece oculto.
+  function hideMusicLabel() {
     const el = document.getElementById("sunwalkerNowPlaying");
     if (!el) return;
-    el.style.top = "auto";
-    el.style.left = "18px";
-    el.style.bottom = "18px";
-    el.style.transform = "none";
-    el.style.minWidth = "0";
-    el.style.maxWidth = "260px";
-    el.style.width = "auto";
-    el.style.padding = "6px 10px";
-    el.style.fontSize = "10px";
-    el.style.letterSpacing = ".35px";
-    el.style.textAlign = "left";
-    el.style.borderRadius = "5px";
-    el.style.opacity = el.style.opacity || "0";
-    el.style.cursor = "pointer";
-    el.title = "Clique para trocar a música";
-    setupMusicClick();
+    el.hidden = true;
+    el.style.display = "none";
+    el.textContent = "";
+    el.onclick = null;
   }
-  setInterval(styleMusicModal, 250);
+  setInterval(hideMusicLabel, 250);
+  hideMusicLabel();
 
   function createSkillStatus() {
     if (document.getElementById("alpha18SkillStatus")) return;
     const el = document.createElement("div");
     el.id = "alpha18SkillStatus";
-    el.style.cssText = "position:fixed;left:18px;top:18px;z-index:10004;display:flex;gap:7px;flex-direction:column;pointer-events:none;font:700 11px Arial;letter-spacing:.5px;";
+    el.style.cssText = "position:fixed;left:18px;top:18px;z-index:10004;display:flex;gap:6px;flex-direction:column;pointer-events:none;font:700 11px Arial;letter-spacing:.45px;";
     document.body.appendChild(el);
   }
+
   function refreshSkillStatus() {
     createSkillStatus();
     const el = document.getElementById("alpha18SkillStatus");
@@ -174,9 +120,9 @@
     const lightning = localStorage.getItem("sunwalker_lightning_sword") === "true";
     const ally = localStorage.getItem("sunwalker_ally_sheath") === "true";
     const items = [];
-    if (lightning) items.push("⚡ ESPADA RELÂMPAGO  • ATIVA");
-    if (ally) items.push("🔵 BAINHA DE CONVERSÃO  • ATIVA");
-    el.innerHTML = items.map(text => `<div style="padding:7px 10px;background:rgba(8,12,16,.88);border:1px solid rgba(200,220,235,.75);border-radius:6px;color:#f5ead0;box-shadow:0 3px 12px rgba(0,0,0,.4)">${text}</div>`).join("");
+    if (lightning) items.push("⚡ ESPADA RELÂMPAGO");
+    if (ally) items.push("🔵 BAINHA DE CONVERSÃO");
+    el.innerHTML = items.map(text => `<div style="padding:7px 10px;background:rgba(8,12,16,.9);border:1px solid rgba(232,180,59,.7);border-left:3px solid #e8b43b;border-radius:5px;color:#f5ead0;box-shadow:0 3px 12px rgba(0,0,0,.4)">${text}<span style="display:block;margin-top:3px;font-size:9px;color:#9be09b;letter-spacing:.7px">ATIVA</span></div>`).join("");
   }
   setInterval(refreshSkillStatus, 300);
   refreshSkillStatus();
@@ -188,13 +134,10 @@
     player.coins = 999999;
   }
 
-  // A interface do modo Deus é criada no HTML principal.
-  // Mantemos este fallback apenas para versões antigas da página.
   function ensureGodModeUI() {
     const settings = document.querySelector("#settingsOverlay .settings-modal");
     if (!settings || document.getElementById("godModeSetting")) return;
   }
-
   setInterval(() => { ensureGodModeUI(); refreshGodResources(); }, 250);
   ensureGodModeUI();
 
