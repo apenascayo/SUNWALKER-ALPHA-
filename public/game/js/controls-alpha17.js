@@ -80,12 +80,13 @@
       localStorage.removeItem(GOD_KEY);
       updateGodModeUI();
     });
-    password.addEventListener("input", () => {
-      if (password.value.length === 3) activateGodMode();
-    });
+
+    // Não ativa automaticamente ao digitar o terceiro caractere.
+    // Assim os 3 caracteres da senha FTK ficam visíveis no campo.
     password.addEventListener("keydown", event => {
       if (event.key === "Enter") activateGodMode();
     });
+
     updateGodModeUI();
   }
 
