@@ -1,5 +1,5 @@
 // Trilha de combate Alpha 1.8.
-// Clique no nome da música para trocar imediatamente a faixa atual.
+// Usa um embaralhamento por ciclo para evitar repetição antes de tocar todas as faixas.
 (() => {
   const COMBAT_MUSIC_TRACKS = [
     "assets/music/Sertão do Shakuhachi.wav",
@@ -9,13 +9,32 @@
     "assets/music/Sertão de Lâmpadas 2 (1).wav"
   ];
 
-  const TRACK_NAMES = [
-    "Sertão do Shakuhachi",
-    "Sertão do Shakuhachi 2",
-    "Combaião Determinado",
-    "Sertão de Lâmpadas 1",
-    "Sertão de Lâmpadas 2"
-  ];
+  let musicBag = [];
+  let lastPlayedIndex = -1;
+
+  function refillMusicBag() {
+    musicBag = Array.from({ length: COMBAT_MUSIC_TRACKS.length }, (_, i) => i);
+
+    // Fisher-Yates: embaralhamento real do ciclo.
+    for (let i = musicBag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [musicBag[i], musicBag[j]] = [musicBag[j], musicBag[i]];
+    }
+
+    // Se o novo ciclo começar pela mesma música do ciclo anterior,
+    // troca com outra posição para impedir repetição entre ciclos.
+    if (musicBag.length > 1 && musicBag[0] === lastPlayedIndex) {
+      const swapIndex = 1 + Math.floor(Math.random() * (musicBag.length - 1));
+      [musicBag[0], musicBag[swapIndex]] = [musicBag[swapIndex], musicBag[0]];
+    }
+  }
+
+  function getNextMusicIndex() {
+    if (!musicBag.length) refillMusicBag();
+    const next = musicBag.shift();
+    lastPlayedIndex = next;
+    return next;
+  }
 
   function ensureNowPlaying() {
     let el = document.getElementById("sunwalkerNowPlaying");
@@ -25,50 +44,45 @@
       el.type = "button";
       document.body.appendChild(el);
     }
-    el.title = "Clique para trocar a música";
-    el.style.cursor = "pointer";
-    el.style.pointerEvents = "auto";
-    el.style.zIndex = "10005";
-    el.onclick = changeMusicNow;
+    // O nome da música não é mais exibido.
+    el.hidden = true;
+    el.style.display = "none";
+    el.onclick = null;
     return el;
   }
 
-  function updateNowPlaying(index) {
+  function updateNowPlaying() {
     const el = ensureNowPlaying();
-    const safeIndex = ((index % COMBAT_MUSIC_TRACKS.length) + COMBAT_MUSIC_TRACKS.length) % COMBAT_MUSIC_TRACKS.length;
-    el.textContent = `♫ ${TRACK_NAMES[safeIndex]}  •  CLIQUE PARA TROCAR`;
-    el.dataset.trackIndex = String(safeIndex);
+    el.textContent = "";
   }
 
   function playCombatMusicTrack(index) {
     if (typeof musicState === "undefined" || !musicState.audio) return;
+
     const safeIndex = ((index % COMBAT_MUSIC_TRACKS.length) + COMBAT_MUSIC_TRACKS.length) % COMBAT_MUSIC_TRACKS.length;
     musicState.index = safeIndex;
-    const src = COMBAT_MUSIC_TRACKS[safeIndex];
-    musicState.audio.src = encodeURI(src);
+    musicState.audio.src = encodeURI(COMBAT_MUSIC_TRACKS[safeIndex]);
     musicState.audio.volume = musicState.volume;
-    updateNowPlaying(safeIndex);
+    updateNowPlaying();
 
     const playPromise = musicState.audio.play();
     if (playPromise && typeof playPromise.catch === "function") {
       playPromise.then(() => { musicState.playBlocked = false; })
         .catch(() => { musicState.playBlocked = true; });
     }
-    musicState.index = (safeIndex + 1) % COMBAT_MUSIC_TRACKS.length;
   }
 
   function playNextMusicTrack() {
     if (typeof musicState === "undefined") return;
-    playCombatMusicTrack(musicState.index);
+    playCombatMusicTrack(getNextMusicIndex());
   }
 
+  // Mantido para compatibilidade com a interface antiga.
   function changeMusicNow() {
     if (typeof musicState === "undefined" || !musicState.audio) return;
-    const current = Number(musicState.index || 0);
-    const next = current % COMBAT_MUSIC_TRACKS.length;
     musicState.audio.pause();
     musicState.audio.currentTime = 0;
-    playCombatMusicTrack(next);
+    playNextMusicTrack();
   }
 
   window.playNextMusicTrack = playNextMusicTrack;
@@ -95,15 +109,13 @@
       if (typeof setMusicStatus === "function") setMusicStatus("Música: tocando", false);
     });
 
-    playCombatMusicTrack(musicState.index || 0);
+    // Primeiro ciclo também é embaralhado, sem repetição.
+    refillMusicBag();
+    playNextMusicTrack();
   };
 
+  // O player antigo continua existindo apenas como elemento oculto.
   setInterval(() => {
-    try {
-      const el = document.getElementById("sunwalkerNowPlaying");
-      if (!el || typeof musicState === "undefined" || !musicState.audio) return;
-      const currentIndex = (musicState.index - 1 + COMBAT_MUSIC_TRACKS.length) % COMBAT_MUSIC_TRACKS.length;
-      updateNowPlaying(currentIndex);
-    } catch (_) {}
-  }, 500);
+    try { ensureNowPlaying(); } catch (_) {}
+  }, 1000);
 })();
