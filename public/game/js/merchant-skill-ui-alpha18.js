@@ -6,7 +6,21 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
-      .merchant-modal { min-width: min(560px, calc(100vw - 28px)); max-width: 560px; }
+      .merchant-modal {
+        min-width: min(560px, calc(100vw - 28px));
+        max-width: 560px;
+        max-height: min(78vh, 720px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 8px;
+        box-sizing: border-box;
+        scrollbar-width: thin;
+        scrollbar-color: #8d7449 #17171b;
+      }
+      .merchant-modal::-webkit-scrollbar { width: 8px; }
+      .merchant-modal::-webkit-scrollbar-track { background: #17171b; border-radius: 8px; }
+      .merchant-modal::-webkit-scrollbar-thumb { background: #8d7449; border-radius: 8px; border: 2px solid #17171b; }
+      .merchant-modal::-webkit-scrollbar-thumb:hover { background: #b39458; }
       .merchant-head { padding: 14px; margin-bottom: 16px; background: linear-gradient(135deg, rgba(83,61,35,.45), rgba(24,24,28,.8)); border: 1px solid rgba(232,180,59,.35); border-radius: 10px; }
       .merchant-portrait { width: 104px; height: 104px; border: 2px solid #8d7449; border-radius: 8px; background: #151518; box-shadow: 0 5px 18px rgba(0,0,0,.45); }
       .merchant-modal .skill-card { padding: 16px; margin-bottom: 10px; border: 1px solid #4a4a50; border-left: 4px solid #777; border-radius: 9px; background: linear-gradient(145deg,#29292f,#202126); transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease, background .12s ease; }
