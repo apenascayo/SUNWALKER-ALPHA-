@@ -26,7 +26,7 @@
 
   function refreshMerchantUI() {
     const portrait = document.querySelector(".merchant-portrait");
-    if (portrait && !portrait.src.includes("mercador.png")) portrait.src = "assets/mercador.png?v=3";
+    if (portrait) portrait.src = "assets/mercador.png?v=3";
 
     const cards = [
       ["skillLightning", "sunwalker_lightning_sword"],
