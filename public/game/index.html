@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sunwalker — Alpha 1.6</title>
+  <title>Sunwalker — Alpha 1.7</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -35,7 +35,7 @@
         <div class="bar reputation"><div id="reputationBar"></div></div>
         <div class="bar-label">STAMINA <span id="staminaText">100/100</span></div>
         <div class="bar stamina"><div id="staminaBar"></div></div>
-        <div id="dashStatus" class="hud-small">DASHES: 5/5</div>
+        <div id="dashStatus" class="hud-small">ROLAGENS: 5/5</div>
       </div>
 
       <div id="waveStatus" class="hud-panel wave-status" aria-live="polite">
@@ -68,11 +68,11 @@
 
       <div id="debugControls" class="controls debug-only">
         <b>WASD</b> Movimento 8 direções
-        <b>SHIFT</b> Dash rápido / segurar para correr
+        <b>SHIFT</b> Rolar
         <b>Mouse Dir.</b> Mirar (segurar)
         <b>Mouse Esq.</b> Atacar
         <b>R</b> Trocar espada/bainha
-        <b>ESPAÇO</b> Defesa/Parry
+        <b>ESPAÇO</b> Usar item / interagir
         <b>E</b> Falar com o Mercante
         <b>ESC</b> Pausa
         <b>F3</b> Debug
@@ -95,7 +95,7 @@
 
     <section id="settingsOverlay" class="overlay hidden">
       <div class="modal settings-modal">
-        <h1>CONFIGURAÇÕES — ALPHA 1.6</h1>
+        <h1>CONFIGURAÇÕES — ALPHA 1.7</h1>
         <div class="setting-group">
           <h3>MODO DE ATAQUE</h3>
           <label><input type="radio" name="attackMode" value="mouse"> Mouse</label>
@@ -122,7 +122,8 @@
           <b>Mouse:</b> segure o direito para mirar, esquerdo para atacar.<br>
           <b>R:</b> alterna entre espada e bainha.<br>
           <b>Teclado:</b> K = atacar com a arma selecionada.<br>
-          <b>Espaço:</b> defesa nos dois modos.<br>
+          <b>Shift:</b> rolagem na direção da mira.<br>
+          <b>Espaço:</b> usar item / interagir.<br>
           <b>F3:</b> liga/desliga o modo debug.
         </div>
         <button id="closeSettingsButton">FECHAR</button>
@@ -151,7 +152,7 @@
         </div>
         <div class="skill-card" id="itemMelador">
           <h3>MELADOR <span class="skill-price">50 moedas</span></h3>
-          <p>Item de cura: recupera 25% da vida máxima. Use pelo inventário com F.</p>
+          <p>Item de cura: recupera 25% da vida máxima. Use pelo inventário com Espaço.</p>
           <span class="skill-state" id="itemMeladorState">COMPRAR — 50 MOEDAS</span>
         </div>
         <div class="skill-card" id="itemFireBomb">
@@ -166,7 +167,7 @@
     <section id="inventoryOverlay" class="overlay hidden">
       <div class="modal inventory-modal">
         <h1>INVENTÁRIO</h1>
-        <p id="inventoryMessage">Selecione um item ativo e use F.</p>
+        <p id="inventoryMessage">Selecione um item ativo e use Espaço.</p>
         <div id="inventoryList"></div>
         <button id="closeInventoryButton">FECHAR (I / ESC)</button>
       </div>
@@ -198,5 +199,6 @@
   <script src="js/camera.js"></script>
   <script src="js/render.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/controls-alpha17.js"></script>
 </body>
 </html>
