@@ -4,9 +4,7 @@
   const originalInputDown = Input.down.bind(Input);
   const originalInputConsume = Input.consume.bind(Input);
 
-  Input.down = function(key) {
-    return originalInputDown(key);
-  };
+  Input.down = function(key) { return originalInputDown(key); };
 
   Input.consume = function(key) {
     if (key === "f") return originalInputConsume(" ");
@@ -16,24 +14,21 @@
   Player.prototype.isDefending = function() { return false; };
   Player.prototype.canRun = function() { return false; };
 
-  // Modo Deus: controle direto da UI e proteção contínua dos recursos.
-  // O sistema fica persistente no navegador até ser desativado.
   const GOD_KEY = "sunwalker_god_mode";
-  const GOD_PASSWORD = "FTK";
 
   function godModeActive() {
     return localStorage.getItem(GOD_KEY) === "true";
   }
 
   function updateGodModeUI() {
-    const password = document.getElementById("godModePassword");
     const activate = document.getElementById("godModeActivate");
     const deactivate = document.getElementById("godModeDeactivate");
     const status = document.getElementById("godModeStatus");
-    if (!password || !activate || !deactivate || !status) return;
+    const password = document.getElementById("godModePassword");
+    if (!activate || !deactivate || !status) return;
 
     const active = godModeActive();
-    password.style.display = active ? "none" : "inline-block";
+    if (password) password.style.display = "none";
     activate.style.display = active ? "none" : "inline-block";
     deactivate.style.display = active ? "inline-block" : "none";
     status.textContent = active ? "MODO DEUS: ATIVO" : "MODO DEUS: DESATIVADO";
@@ -41,19 +36,7 @@
   }
 
   function activateGodMode() {
-    const password = document.getElementById("godModePassword");
-    const status = document.getElementById("godModeStatus");
-    if (!password || !status) return;
-
-    if (password.value.trim().toUpperCase() !== GOD_PASSWORD) {
-      status.textContent = "SENHA INCORRETA";
-      status.style.color = "#e06c75";
-      password.select();
-      return;
-    }
-
     localStorage.setItem(GOD_KEY, "true");
-    password.value = "";
     updateGodModeUI();
     refreshGodModeResources();
   }
@@ -70,8 +53,7 @@
   function setupGodMode() {
     const activate = document.getElementById("godModeActivate");
     const deactivate = document.getElementById("godModeDeactivate");
-    const password = document.getElementById("godModePassword");
-    if (!activate || !deactivate || !password) return;
+    if (!activate || !deactivate) return;
     if (activate.dataset.godBound === "true") return;
 
     activate.dataset.godBound = "true";
@@ -80,13 +62,6 @@
       localStorage.removeItem(GOD_KEY);
       updateGodModeUI();
     });
-
-    // Não ativa automaticamente ao digitar o terceiro caractere.
-    // Assim os 3 caracteres da senha FTK ficam visíveis no campo.
-    password.addEventListener("keydown", event => {
-      if (event.key === "Enter") activateGodMode();
-    });
-
     updateGodModeUI();
   }
 
@@ -99,7 +74,6 @@
 
   console.info("[Sunwalker] Alpha 1.8: audio de combate, musica aleatoria, contador de wave, modo deus e feedback de habilidades.");
 
-  // Carrega as melhorias da Alpha 1.8 depois dos sistemas base.
   const script = document.createElement("script");
   script.src = "js/alpha18-audio-ui.js";
   script.defer = false;
