@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sunwalker — Alpha 1.5</title>
+  <title>Sunwalker — Alpha 1.6</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -31,10 +31,10 @@
       <div class="hud-panel">
         <div class="bar-label">VIDA <span id="hpText">100/100</span></div>
         <div class="bar hp"><div id="hpBar"></div></div>
+        <div class="bar-label">REPUTAÇÃO <span id="reputationText">50/100</span></div>
+        <div class="bar reputation"><div id="reputationBar"></div></div>
         <div class="bar-label">STAMINA <span id="staminaText">100/100</span></div>
         <div class="bar stamina"><div id="staminaBar"></div></div>
-        <div class="bar-label">REPUTA??O <span id="reputationText">50/100</span></div>
-        <div class="bar reputation"><div id="reputationBar"></div></div>
         <div id="dashStatus" class="hud-small">DASHES: 5/5</div>
       </div>
 
@@ -47,7 +47,7 @@
       <div id="debugStatus" class="hud-panel status debug-only">
         <div>X: <span id="coordX">50.0</span></div>
         <div>Y: <span id="coordY">50.0</span></div>
-        <div>DIRE??O: <span id="direction">DOWN</span></div>
+        <div>DIREÇÃO: <span id="direction">DOWN</span></div>
         <div>ESTADO: <span id="state">IDLE</span></div>
         <div>ARMA: <span id="weaponText">ESPADA</span></div>
         <div>ATAQUE: <span id="controlModeText">MOUSE</span></div>
@@ -56,23 +56,23 @@
       </div>
 
       <div class="coin-counter" aria-label="Moedas">
-        <span class="coin-icon">?</span>
+        <span class="coin-icon">●</span>
         <span id="coinCounterText">0</span>
         <span class="coin-label">MOEDAS</span>
       </div>
 
       <div class="top-actions">
         <button id="pauseButton">II PAUSAR</button>
-        <button id="settingsButton">? CONFIGURA??ES</button>
+        <button id="settingsButton">⚙ CONFIGURAÇÕES</button>
       </div>
 
       <div id="debugControls" class="controls debug-only">
-        <b>WASD</b> Movimento 8 dire??es
-        <b>SHIFT</b> Dash r?pido / segurar para correr
+        <b>WASD</b> Movimento 8 direções
+        <b>SHIFT</b> Dash rápido / segurar para correr
         <b>Mouse Dir.</b> Mirar (segurar)
         <b>Mouse Esq.</b> Atacar
         <b>R</b> Trocar espada/bainha
-        <b>ESPA?O</b> Defesa/Parry
+        <b>ESPAÇO</b> Defesa/Parry
         <b>E</b> Falar com o Mercante
         <b>ESC</b> Pausa
         <b>F3</b> Debug
@@ -89,40 +89,40 @@
       <div class="modal">
         <h1>JOGO PAUSADO</h1>
         <button id="resumeButton">CONTINUAR</button>
-        <button id="pauseSettingsButton">CONFIGURA??ES</button>
+        <button id="pauseSettingsButton">CONFIGURAÇÕES</button>
       </div>
     </section>
 
     <section id="settingsOverlay" class="overlay hidden">
       <div class="modal settings-modal">
-        <h1>CONFIGURA??ES</h1>
+        <h1>CONFIGURAÇÕES — ALPHA 1.6</h1>
         <div class="setting-group">
           <h3>MODO DE ATAQUE</h3>
           <label><input type="radio" name="attackMode" value="mouse"> Mouse</label>
           <label><input type="radio" name="attackMode" value="keyboard"> Teclado</label>
         </div>
         <div class="setting-group">
-          <h3>ZOOM DA C?MERA <span id="zoomValue">100%</span></h3>
-          <input type="range" id="zoomRange" min="60" max="180" step="5" value="100" style="width:100%">
+          <h3>ZOOM DA CÂMERA <span id="zoomValue">100%</span></h3>
+          <input type="range" id="zoomRange" min="60" max="180" step="5" value="100" style="width:100%; cursor:pointer">
         </div>
         <div class="setting-group">
-          <h3>M?SICA <span id="musicVolumeValue">35%</span></h3>
-          <input type="range" id="musicVolumeRange" min="0" max="1" step="0.01" value="0.35" style="width:100%">
+          <h3>MÚSICA <span id="musicVolumeValue">35%</span></h3>
+          <input type="range" id="musicVolumeRange" min="0" max="1" step="0.01" value="0.35" style="width:100%; cursor:pointer">
           <div id="musicStatus" role="status" aria-live="polite"></div>
         </div>
         <div class="setting-group">
           <h3>VOLUME DOS EFEITOS <span id="effectsVolumeValue">60%</span></h3>
-          <input type="range" id="effectsVolumeRange" min="0" max="1" step="0.01" value="0.6" style="width:100%">
+          <input type="range" id="effectsVolumeRange" min="0" max="1" step="0.01" value="0.6" style="width:100%; cursor:pointer">
         </div>
         <div class="setting-group">
           <h3>DEBUG</h3>
-          <label><input type="checkbox" id="debugToggle"> Mostrar hitboxes, raios de ataque e colis?o (F3)</label>
+          <label><input type="checkbox" id="debugToggle"> Mostrar hitboxes, raios de ataque e colisão (F3)</label>
         </div>
         <div class="settings-help">
           <b>Mouse:</b> segure o direito para mirar, esquerdo para atacar.<br>
           <b>R:</b> alterna entre espada e bainha.<br>
           <b>Teclado:</b> K = atacar com a arma selecionada.<br>
-          <b>Espa?o:</b> defesa nos dois modos.<br>
+          <b>Espaço:</b> defesa nos dois modos.<br>
           <b>F3:</b> liga/desliga o modo debug.
         </div>
         <button id="closeSettingsButton">FECHAR</button>
@@ -135,19 +135,19 @@
           <img src="assets/merchant.jpg" alt="Mercante" class="merchant-portrait">
           <div>
             <h1>MERCANTE</h1>
-            <p class="merchant-line">"O que posso fazer por voc??"</p>
+            <p class="merchant-line">"O que posso fazer por você?"</p>
             <p class="merchant-coins">MOEDAS: <b id="merchantCoins">0</b></p>
           </div>
         </div>
         <div class="skill-card" id="skillFire">
-          <h3>ESPADA ? DANO DE FOGO <span class="skill-price">30 moedas</span></h3>
+          <h3>ESPADA — DANO DE FOGO <span class="skill-price">30 moedas</span></h3>
           <p>O inimigo atingido queima por 3s, perdendo 7% da vida por segundo.</p>
-          <span class="skill-state" id="skillFireState">COMPRAR ? 30 MOEDAS</span>
+          <span class="skill-state" id="skillFireState">COMPRAR — 30 MOEDAS</span>
         </div>
         <div class="skill-card" id="skillRepel">
-          <h3>BAINHA ? REPULS?O APRIMORADA <span class="skill-price">60 moedas</span></h3>
+          <h3>BAINHA — REPULSÃO APRIMORADA <span class="skill-price">60 moedas</span></h3>
           <p>Empurra o inimigo 20px, desmaia com 2 ataques e o atordoa por 3s.</p>
-          <span class="skill-state" id="skillRepelState">COMPRAR ? 60 MOEDAS</span>
+          <span class="skill-state" id="skillRepelState">COMPRAR — 60 MOEDAS</span>
         </div>
         <div class="skill-card" id="itemMelador">
           <h3>MELADOR <span class="skill-price">50 moedas</span></h3>
@@ -185,7 +185,7 @@
 
     <section id="gameOver" class="hidden">
       <div class="game-over-box">
-        <h1>VOC? MORREU</h1>
+        <h1>VOCÊ MORREU</h1>
         <button id="restartButton">REINICIAR TESTE</button>
       </div>
     </section>
