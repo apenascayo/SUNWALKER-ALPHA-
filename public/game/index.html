@@ -11,210 +11,37 @@
   <main id="game-shell">
     <div id="screenDamageOverlay" aria-hidden="true"></div>
     <canvas id="gameCanvas"></canvas>
-
-    <section id="startOverlay" class="overlay">
-      <div class="modal start-modal">
-        <h1>SUNWALKER</h1>
-        <p>Prepare-se para caminhar sob o sol.</p>
-        <button id="playButton" type="button">PLAY</button>
-      </div>
-    </section>
-
-    <section id="runtimeErrorOverlay" class="overlay hidden" role="alert" aria-live="assertive">
-      <div class="modal error-modal">
-        <h1>ERRO DE RENDERIZAÇÃO</h1>
-        <p id="runtimeErrorMessage">O jogo foi pausado para evitar perda de dados.</p>
-        <button id="runtimeErrorDismissButton" type="button">FECHAR</button>
-      </div>
-    </section>
-
+    <section id="startOverlay" class="overlay"><div class="modal start-modal"><h1>SUNWALKER</h1><p>Prepare-se para caminhar sob o sol.</p><button id="playButton" type="button">PLAY</button></div></section>
+    <section id="runtimeErrorOverlay" class="overlay hidden" role="alert" aria-live="assertive"><div class="modal error-modal"><h1>ERRO DE RENDERIZAÇÃO</h1><p id="runtimeErrorMessage">O jogo foi pausado para evitar perda de dados.</p><button id="runtimeErrorDismissButton" type="button">FECHAR</button></div></section>
     <section id="hud">
-      <div class="hud-panel">
-        <div class="bar-label">VIDA <span id="hpText">100/100</span></div>
-        <div class="bar hp"><div id="hpBar"></div></div>
-        <div class="bar-label">REPUTAÇÃO <span id="reputationText">50/100</span></div>
-        <div class="bar reputation"><div id="reputationBar"></div></div>
-        <div class="bar-label">STAMINA <span id="staminaText">100/100</span></div>
-        <div class="bar stamina"><div id="staminaBar"></div></div>
-        <div id="dashStatus" class="hud-small">DASHES: 5/5</div>
-      </div>
-
-      <div id="waveStatus" class="hud-panel wave-status" aria-live="polite">
-        <div class="wave-title">PRÓXIMA ONDA</div>
-        <div class="wave-number">ONDA <span id="nextWaveNumber">2</span></div>
-        <div class="wave-countdown">EM <span id="waveCountdown">30s</span></div>
-      </div>
-
-      <div id="debugStatus" class="hud-panel status debug-only">
-        <div>X: <span id="coordX">50.0</span></div>
-        <div>Y: <span id="coordY">50.0</span></div>
-        <div>DIREÇÃO: <span id="direction">DOWN</span></div>
-        <div>ESTADO: <span id="state">IDLE</span></div>
-        <div>ARMA: <span id="weaponText">ESPADA</span></div>
-        <div>ATAQUE: <span id="controlModeText">MOUSE</span></div>
-        <div>MOEDAS: <span id="coinText">0</span></div>
-        <div>ONDA EM: <span id="waveText">30s</span></div>
-      </div>
-
-      <div class="coin-counter" aria-label="Moedas">
-        <span class="coin-icon">●</span>
-        <span id="coinCounterText">0</span>
-        <span class="coin-label">MOEDAS</span>
-      </div>
-
-      <div class="top-actions">
-        <button id="pauseButton">II PAUSAR</button>
-        <button id="settingsButton">⚙ CONFIGURAÇÕES</button>
-      </div>
-
-      <div id="debugControls" class="controls debug-only">
-        <b>WASD</b> Movimento 8 direções
-        <b>SHIFT</b> Dash teleportado 50px
-        <b>Mouse Dir.</b> Mirar (segurar)
-        <b>Mouse Esq.</b> Atacar
-        <b>R</b> Trocar espada/bainha + som
-        <b>ESPAÇO</b> Usar item / interagir / pescar
-        <b>E</b> Falar com o Mercante
-        <b>ESC</b> Pausa
-        <b>F3</b> Debug
-      </div>
+      <div class="hud-panel"><div class="bar-label">VIDA <span id="hpText">100/100</span></div><div class="bar hp"><div id="hpBar"></div></div><div class="bar-label">REPUTAÇÃO <span id="reputationText">50/100</span></div><div class="bar reputation"><div id="reputationBar"></div></div><div class="bar-label">STAMINA <span id="staminaText">100/100</span></div><div class="bar stamina"><div id="staminaBar"></div></div><div id="dashStatus" class="hud-small">DASHES: 5/5</div></div>
+      <div id="waveStatus" class="hud-panel wave-status" aria-live="polite"><div class="wave-title">PRÓXIMA ONDA</div><div class="wave-number">ONDA <span id="nextWaveNumber">2</span></div><div class="wave-countdown">EM <span id="waveCountdown">30s</span></div></div>
+      <div id="debugStatus" class="hud-panel status debug-only"><div>X: <span id="coordX">50.0</span></div><div>Y: <span id="coordY">50.0</span></div><div>DIREÇÃO: <span id="direction">DOWN</span></div><div>ESTADO: <span id="state">IDLE</span></div><div>ARMA: <span id="weaponText">ESPADA</span></div><div>ATAQUE: <span id="controlModeText">MOUSE</span></div><div>MOEDAS: <span id="coinText">0</span></div><div>ONDA EM: <span id="waveText">30s</span></div></div>
+      <div class="coin-counter" aria-label="Moedas"><span class="coin-icon">●</span><span id="coinCounterText">0</span><span class="coin-label">MOEDAS</span></div>
+      <div class="top-actions"><button id="pauseButton">II PAUSAR</button><button id="settingsButton">⚙ CONFIGURAÇÕES</button></div>
+      <div id="debugControls" class="controls debug-only"><b>WASD</b> Movimento 8 direções <b>SHIFT</b> Dash teleportado 50px <b>Mouse Dir.</b> Mirar (segurar) <b>Mouse Esq.</b> Atacar <b>R</b> Trocar espada/bainha + som <b>ESPAÇO</b> Usar item / interagir / pescar <b>E</b> Falar com o Mercante <b>ESC</b> Pausa <b>F3</b> Debug</div>
     </section>
-
-    <div id="combatMessage"></div>
-    <div id="xpHud" aria-label="Experiência">
-      <div class="xp-label">XP <span id="xpText">0/100</span></div>
-      <div class="bar xp"><div id="xpBar"></div></div>
-    </div>
-
-    <section id="pauseOverlay" class="overlay hidden">
-      <div class="modal">
-        <h1>JOGO PAUSADO</h1>
-        <button id="resumeButton">CONTINUAR</button>
-        <button id="pauseSettingsButton">CONFIGURAÇÕES</button>
-      </div>
-    </section>
-
-    <section id="settingsOverlay" class="overlay hidden">
-      <div class="modal settings-modal">
-        <h1>CONFIGURAÇÕES — ALPHA 1.8</h1>
-        <div class="setting-group">
-          <h3>MODO DE ATAQUE</h3>
-          <label><input type="radio" name="attackMode" value="mouse"> Mouse</label>
-          <label><input type="radio" name="attackMode" value="keyboard"> Teclado</label>
-        </div>
-        <div class="setting-group">
-          <h3>ZOOM DA CÂMERA <span id="zoomValue">100%</span></h3>
-          <input type="range" id="zoomRange" min="60" max="180" step="5" value="100" style="width:100%; cursor:pointer">
-        </div>
-        <div class="setting-group">
-          <h3>MÚSICA <span id="musicVolumeValue">35%</span></h3>
-          <input type="range" id="musicVolumeRange" min="0" max="1" step="0.01" value="0.35" style="width:100%; cursor:pointer">
-          <div id="musicStatus" role="status" aria-live="polite"></div>
-        </div>
-        <div class="setting-group">
-          <h3>VOLUME DOS EFEITOS <span id="effectsVolumeValue">60%</span></h3>
-          <input type="range" id="effectsVolumeRange" min="0" max="1" step="0.01" value="0.6" style="width:100%; cursor:pointer">
-        </div>
-        <div id="godModeSetting" class="setting-group">
-          <h3>MODO DEUS — TESTES</h3>
-          <p style="margin:6px 0;color:#bdb7a8;font-size:12px">Vida infinita e dinheiro infinito para testes da Alpha.</p>
-          <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
-            <input id="godModePassword" type="text" maxlength="3" placeholder="Senha" autocomplete="off" spellcheck="false" style="width:90px;padding:7px">
-            <button id="godModeActivate" type="button">ATIVAR</button>
-            <button id="godModeDeactivate" type="button" style="display:none">DESATIVAR</button>
-          </div>
-          <div id="godModeStatus" style="margin-top:7px;font-size:12px">MODO DEUS: DESATIVADO</div>
-        </div>
-        <div class="setting-group">
-          <h3>DEBUG</h3>
-          <label><input type="checkbox" id="debugToggle"> Mostrar hitboxes, raios de ataque e colisão (F3)</label>
-        </div>
-        <div class="settings-help">
-          <b>Mouse:</b> segure o direito para mirar, esquerdo para atacar.<br>
-          <b>R:</b> alterna entre espada e bainha e toca o som de troca.<br>
-          <b>Teclado:</b> K = atacar com a arma selecionada.<br>
-          <b>Shift:</b> dash de 50px na direção do movimento/mira.<br>
-          <b>Espaço:</b> usar item / interagir / pescar.<br>
-          <b>F3:</b> liga/desliga o modo debug.
-        </div>
-        <button id="closeSettingsButton">FECHAR</button>
-      </div>
-    </section>
-
-    <section id="merchantOverlay" class="overlay hidden">
-      <div class="modal merchant-modal">
-        <div class="merchant-head">
-          <img src="assets/merchant.jpg" alt="Mercante" class="merchant-portrait">
-          <div>
-            <h1>MERCANTE</h1>
-            <p class="merchant-line">"O que posso fazer por você?"</p>
-            <p class="merchant-coins">MOEDAS: <b id="merchantCoins">0</b></p>
-          </div>
-        </div>
-        <div class="skill-card" id="skillFire">
-          <h3>ESPADA — DANO DE FOGO <span class="skill-price">30 moedas</span></h3>
-          <p>O inimigo atingido queima por 3s, perdendo 7% da vida por segundo.</p>
-          <span class="skill-state" id="skillFireState">COMPRAR — 30 MOEDAS</span>
-        </div>
-        <div class="skill-card" id="skillRepel">
-          <h3>BAINHA — REPULSÃO APRIMORADA <span class="skill-price">60 moedas</span></h3>
-          <p>Empurra o inimigo 20px, desmaia com 2 ataques e o atordoa por 3s.</p>
-          <span class="skill-state" id="skillRepelState">COMPRAR — 60 MOEDAS</span>
-        </div>
-        <div class="skill-card" id="itemMelador">
-          <h3>MELADOR <span class="skill-price">50 moedas</span></h3>
-          <p>Item de cura: recupera 25% da vida máxima. Use pelo inventário com Espaço.</p>
-          <span class="skill-state" id="itemMeladorState">COMPRAR — 50 MOEDAS</span>
-        </div>
-        <div class="skill-card" id="itemFireBomb">
-          <h3>BOMBA DE FOGO <span class="skill-price">75 moedas</span></h3>
-          <p>Cria uma área circular de fogo de 20x20px por 5s. Causa 15% da vida máxima por segundo.</p>
-          <span class="skill-state" id="itemFireBombState">COMPRAR — 75 MOEDAS</span>
-        </div>
-        <button id="closeMerchantButton">SAIR (E / ESC)</button>
-      </div>
-    </section>
-
-    <section id="inventoryOverlay" class="overlay hidden">
-      <div class="modal inventory-modal">
-        <h1>INVENTÁRIO</h1>
-        <p id="inventoryMessage">Selecione um item ativo e use Espaço.</p>
-        <div id="inventoryList"></div>
-        <button id="closeInventoryButton">FECHAR (I / ESC)</button>
-      </div>
-    </section>
-
-    <section id="levelUpOverlay" class="overlay hidden">
-      <div class="modal level-modal">
-        <h1>SUBIU DE NÍVEL!</h1>
-        <p>Escolha um atributo para aumentar em 10%.</p>
-        <button data-upgrade="health">VIDA <span id="upgradeHealthSquares">□□□□□</span></button>
-        <button data-upgrade="attack">ATAQUE <span id="upgradeAttackSquares">□□□□□</span></button>
-        <button data-upgrade="speed">VELOCIDADE <span id="upgradeSpeedSquares">□□□□□</span></button>
-        <button data-upgrade="stamina">STAMINA <span id="upgradeStaminaSquares">□□□□□</span></button>
-      </div>
-    </section>
-
-    <section id="gameOver" class="hidden">
-      <div class="game-over-box">
-        <h1>VOCÊ MORREU</h1>
-        <button id="restartButton">REINICIAR TESTE</button>
-      </div>
-    </section>
+    <div id="combatMessage"></div><div id="xpHud" aria-label="Experiência"><div class="xp-label">XP <span id="xpText">0/100</span></div><div class="bar xp"><div id="xpBar"></div></div></div>
+    <section id="pauseOverlay" class="overlay hidden"><div class="modal"><h1>JOGO PAUSADO</h1><button id="resumeButton">CONTINUAR</button><button id="pauseSettingsButton">CONFIGURAÇÕES</button></div></section>
+    <section id="settingsOverlay" class="overlay hidden"><div class="modal settings-modal"><h1>CONFIGURAÇÕES — ALPHA 1.8</h1>
+      <div class="setting-group"><h3>MODO DE ATAQUE</h3><label><input type="radio" name="attackMode" value="mouse"> Mouse</label><label><input type="radio" name="attackMode" value="keyboard"> Teclado</label></div>
+      <div class="setting-group"><h3>ZOOM DA CÂMERA <span id="zoomValue">100%</span></h3><input type="range" id="zoomRange" min="60" max="180" step="5" value="100" style="width:100%; cursor:pointer"></div>
+      <div class="setting-group"><h3>MÚSICA <span id="musicVolumeValue">35%</span></h3><input type="range" id="musicVolumeRange" min="0" max="1" step="0.01" value="0.35" style="width:100%; cursor:pointer"><div id="musicStatus" role="status" aria-live="polite"></div></div>
+      <div class="setting-group"><h3>VOLUME DOS EFEITOS <span id="effectsVolumeValue">60%</span></h3><input type="range" id="effectsVolumeRange" min="0" max="1" step="0.01" value="0.6" style="width:100%; cursor:pointer"></div>
+      <div id="godModeSetting" class="setting-group"><h3>MODO DEUS — TESTES</h3><p style="margin:6px 0;color:#bdb7a8;font-size:12px">Vida infinita e dinheiro infinito para testes da Alpha.</p><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><button id="godModeActivate" type="button">ATIVAR</button><button id="godModeDeactivate" type="button" style="display:none">DESATIVAR</button></div><div id="godModeStatus" style="margin-top:7px;font-size:12px">MODO DEUS: DESATIVADO</div></div>
+      <div class="setting-group"><h3>DEBUG</h3><label><input type="checkbox" id="debugToggle"> Mostrar hitboxes, raios de ataque e colisão (F3)</label></div>
+      <div class="settings-help"><b>Mouse:</b> segure o direito para mirar, esquerdo para atacar.<br><b>R:</b> alterna entre espada e bainha e toca o som de troca.<br><b>Teclado:</b> K = atacar com a arma selecionada.<br><b>Shift:</b> dash de 50px na direção do movimento/mira.<br><b>Espaço:</b> usar item / interagir / pescar.<br><b>F3:</b> liga/desliga o modo debug.</div><button id="closeSettingsButton">FECHAR</button>
+    </div></section>
+    <section id="merchantOverlay" class="overlay hidden"><div class="modal merchant-modal"><div class="merchant-head"><img src="assets/mercador.png" alt="Mercador" class="merchant-portrait"><div><h1>MERCADOR</h1><p class="merchant-line">"O que posso fazer por você?"</p><p class="merchant-coins">MOEDAS: <b id="merchantCoins">0</b></p></div></div>
+      <div class="skill-card" id="skillFire"><h3>ESPADA — DANO DE FOGO <span class="skill-price">30 moedas</span></h3><p>O inimigo atingido queima por 3s, perdendo 7% da vida por segundo.</p><span class="skill-state" id="skillFireState">COMPRAR — 30 MOEDAS</span></div>
+      <div class="skill-card" id="skillRepel"><h3>BAINHA — REPULSÃO APRIMORADA <span class="skill-price">60 moedas</span></h3><p>Empurra o inimigo 20px, desmaia com 2 ataques e o atordoa por 3s.</p><span class="skill-state" id="skillRepelState">COMPRAR — 60 MOEDAS</span></div>
+      <div class="skill-card" id="itemMelador"><h3>MELADOR <span class="skill-price">50 moedas</span></h3><p>Item de cura: recupera 25% da vida máxima. Use pelo inventário com Espaço.</p><span class="skill-state" id="itemMeladorState">COMPRAR — 50 MOEDAS</span></div>
+      <div class="skill-card" id="itemFireBomb"><h3>BOMBA DE FOGO <span class="skill-price">75 moedas</span></h3><p>Cria uma área circular de fogo de 20x20px por 5s. Causa 15% da vida máxima por segundo.</p><span class="skill-state" id="itemFireBombState">COMPRAR — 75 MOEDAS</span></div><button id="closeMerchantButton">SAIR (E / ESC)</button>
+    </div></section>
+    <section id="inventoryOverlay" class="overlay hidden"><div class="modal inventory-modal"><h1>INVENTÁRIO</h1><p id="inventoryMessage">Selecione um item ativo e use Espaço.</p><div id="inventoryList"></div><button id="closeInventoryButton">FECHAR (I / ESC)</button></div></section>
+    <section id="levelUpOverlay" class="overlay hidden"><div class="modal level-modal"><h1>SUBIU DE NÍVEL!</h1><p>Escolha um atributo para aumentar em 10%.</p><button data-upgrade="health">VIDA <span id="upgradeHealthSquares">□□□□□</span></button><button data-upgrade="attack">ATAQUE <span id="upgradeAttackSquares">□□□□□</span></button><button data-upgrade="speed">VELOCIDADE <span id="upgradeSpeedSquares">□□□□□</span></button><button data-upgrade="stamina">STAMINA <span id="upgradeStaminaSquares">□□□□□</span></button></div></section>
+    <section id="gameOver" class="hidden"><div class="game-over-box"><h1>VOCÊ MORREU</h1><button id="restartButton">REINICIAR TESTE</button></div></section>
   </main>
-
-  <script src="js/config.js"></script>
-  <script src="js/input.js"></script>
-  <script src="js/entities.js"></script>
-  <script src="js/combat.js"></script>
-  <script src="js/camera.js"></script>
-  <script src="js/render.js"></script>
-  <script src="js/game.js"></script>
-  <script src="js/controls-alpha17.js"></script>
-  <script src="js/fishing-alpha17.js"></script>
-  <script src="js/fishing-inventory-alpha17.js"></script>
-  <script src="js/alpha17-fixes2.js"></script>
-  <script src="js/alpha17-visuals.js"></script>
-  <script src="js/alpha17-combat-music.js"></script>
+  <script src="js/config.js"></script><script src="js/input.js"></script><script src="js/entities.js"></script><script src="js/combat.js"></script><script src="js/camera.js"></script><script src="js/render.js"></script><script src="js/game.js"></script><script src="js/controls-alpha17.js"></script><script src="js/fishing-alpha17.js"></script><script src="js/fishing-inventory-alpha17.js"></script><script src="js/alpha17-fixes2.js"></script><script src="js/alpha17-visuals.js"></script><script src="js/alpha17-combat-music.js"></script>
 </body>
 </html>
