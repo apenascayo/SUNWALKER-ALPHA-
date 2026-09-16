@@ -1,11 +1,12 @@
 (() => {
-  // Alpha 1.8: efeitos sonoros de combate, musica aleatoria e feedback visual das habilidades.
+  // Alpha 1.8: efeitos sonoros de combate, musica aleatoria, contador de onda e feedback visual das habilidades.
   document.title = "Sunwalker — Alpha 1.8";
   const EFFECTS = { shock: "assets/sfx/danoeletrico.mp3", bossSword: "assets/sfx/sowrdinimigo.mp3", arrow: "assets/sfx/arrow.mp3" };
   const SHOCK_DURATION = 9000;
   let shockTimers = new Map();
   let lastPlayerDead = false;
   let lastWave = null;
+  let lastMusicIndex = -1;
 
   function effect(name, volume = 0.7) {
     try {
@@ -35,7 +36,7 @@
     };
   }
 
-  // O efeito visual/dano de choque da habilidade e mantido por 9 segundos.
+  // O choque permanece marcado por 9 segundos.
   setInterval(() => {
     try {
       if (typeof enemies === "undefined") return;
@@ -46,7 +47,6 @@
             enemy._alpha18ShockSound = true;
             effect("shock", 0.65);
           }
-          // Renova em blocos de 1s para impedir que a duracao original de 3s encerre o efeito.
           enemy.lightningUntil = Math.max(enemy.lightningUntil, now + 1000);
           clearTimeout(shockTimers.get(enemy.id));
           shockTimers.set(enemy.id, setTimeout(() => { enemy._alpha18ShockSound = false; }, SHOCK_DURATION));
@@ -75,32 +75,48 @@
     };
   }
 
-  // Proxima musica de batalha: indice aleatorio perto do final da faixa.
+  function chooseRandomMusicIndex() {
+    try {
+      const total = Array.isArray(MUSIC_TRACKS) ? MUSIC_TRACKS.length : 0;
+      if (!total) return;
+      if (total === 1) {
+        musicState.index = 0;
+        return;
+      }
+      let next = Math.floor(Math.random() * total);
+      if (next === lastMusicIndex) next = (next + 1 + Math.floor(Math.random() * (total - 1))) % total;
+      lastMusicIndex = next;
+      musicState.index = next;
+    } catch (_) {}
+  }
+
+  // Mantem a proxima faixa aleatoria. O controlador de musica usa o indice escolhido quando a faixa termina.
   setInterval(() => {
     try {
       if (!musicState.audio || musicState.audio.paused || !musicState.audio.duration) return;
-      if (musicState.audio.duration - musicState.audio.currentTime < 1.2) {
-        musicState.index = Math.floor(Math.random() * MUSIC_TRACKS.length);
-      }
+      if (musicState.audio.duration - musicState.audio.currentTime < 1.5) chooseRandomMusicIndex();
     } catch (_) {}
   }, 250);
 
-  // Ao morrer, reinicia a musica e escolhe outro ponto da lista.
+  // Ao morrer: para imediatamente a musica atual, escolhe outra faixa e inicia a nova ordem.
   setInterval(() => {
     try {
       if (typeof player === "undefined") return;
       const dead = player.isDead();
       if (dead && !lastPlayerDead) {
-        musicState.index = Math.floor(Math.random() * MUSIC_TRACKS.length);
+        chooseRandomMusicIndex();
         if (musicState.audio) {
           musicState.audio.pause();
           musicState.audio.currentTime = 0;
+          // Inicia imediatamente a nova faixa; nao espera o evento 'ended'.
+          if (typeof playNextMusicTrack === "function") playNextMusicTrack();
         }
       }
       lastPlayerDead = dead;
     } catch (_) {}
-  }, 150);
+  }, 100);
 
+  // Feedback das habilidades compradas.
   function createSkillStatus() {
     if (document.getElementById("alpha18SkillStatus")) return;
     const el = document.createElement("div");
@@ -124,24 +140,28 @@
   setInterval(refreshSkillStatus, 300);
   refreshSkillStatus();
 
+  // Restaura o contador no layout antigo do HUD. Nao altera position/z-index para nao disputar com a musica.
   function ensureWaveCounter() {
-    let el = document.getElementById("waveStatus");
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "waveStatus";
-      document.body.appendChild(el);
+    const el = document.getElementById("waveStatus");
+    if (!el) return null;
+    const number = document.getElementById("nextWaveNumber");
+    const countdown = document.getElementById("waveCountdown");
+    if (typeof waveCounter !== "undefined" && number) number.textContent = String(waveCounter + 1);
+    if (typeof waveCounter !== "undefined" && countdown && typeof nextRespawnAt !== "undefined") {
+      const seconds = Math.max(0, Math.ceil((nextRespawnAt - performance.now()) / 1000));
+      countdown.textContent = `${seconds}s`;
     }
-    el.style.cssText = "position:fixed;right:18px;top:18px;z-index:10002;padding:8px 12px;background:rgba(10,10,10,.88);border:1px solid rgba(220,190,120,.8);border-radius:6px;color:#f4ead0;font:700 14px Arial;letter-spacing:.8px;pointer-events:none;";
-    if (typeof waveCounter !== "undefined") el.textContent = `ONDA ${waveCounter}`;
     return el;
   }
 
   setInterval(() => {
     try {
       const el = ensureWaveCounter();
+      if (!el) return;
       if (typeof waveCounter !== "undefined" && waveCounter !== lastWave) {
-        el.textContent = `ONDA ${waveCounter}`;
         lastWave = waveCounter;
+        const number = document.getElementById("nextWaveNumber");
+        if (number) number.textContent = String(waveCounter + 1);
       }
     } catch (_) {}
   }, 250);
