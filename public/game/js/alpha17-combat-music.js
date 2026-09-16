@@ -1,12 +1,14 @@
-// Trilha de combate Alpha 1.8.
-// Usa um embaralhamento por ciclo para evitar repetição antes de tocar todas as faixas.
+// Trilha de combate Alpha 1.8.5.
+// Sorteio por ciclo: todas as faixas tocam uma vez antes de qualquer repetição.
 (() => {
   const COMBAT_MUSIC_TRACKS = [
     "assets/music/Sertão do Shakuhachi.wav",
     "assets/music/Sertão do Shakuhachi 2.wav",
     "assets/music/Combaião Determinado.wav",
     "assets/music/Sertão de Lâmpadas 1 (1).wav",
-    "assets/music/Sertão de Lâmpadas 2 (1).wav"
+    "assets/music/Sertão de Lâmpadas 2 (1).wav",
+    "assets/music/Vaqueiro Entoada.wav",
+    "assets/music/Vaqueiro Entoada 2.wav"
   ];
 
   let musicBag = [];
@@ -14,15 +16,10 @@
 
   function refillMusicBag() {
     musicBag = Array.from({ length: COMBAT_MUSIC_TRACKS.length }, (_, i) => i);
-
-    // Fisher-Yates: embaralhamento real do ciclo.
     for (let i = musicBag.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [musicBag[i], musicBag[j]] = [musicBag[j], musicBag[i]];
     }
-
-    // Se o novo ciclo começar pela mesma música do ciclo anterior,
-    // troca com outra posição para impedir repetição entre ciclos.
     if (musicBag.length > 1 && musicBag[0] === lastPlayedIndex) {
       const swapIndex = 1 + Math.floor(Math.random() * (musicBag.length - 1));
       [musicBag[0], musicBag[swapIndex]] = [musicBag[swapIndex], musicBag[0]];
@@ -44,31 +41,23 @@
       el.type = "button";
       document.body.appendChild(el);
     }
-    // O nome da música não é mais exibido.
     el.hidden = true;
     el.style.display = "none";
+    el.textContent = "";
     el.onclick = null;
     return el;
   }
 
-  function updateNowPlaying() {
-    const el = ensureNowPlaying();
-    el.textContent = "";
-  }
-
   function playCombatMusicTrack(index) {
     if (typeof musicState === "undefined" || !musicState.audio) return;
-
     const safeIndex = ((index % COMBAT_MUSIC_TRACKS.length) + COMBAT_MUSIC_TRACKS.length) % COMBAT_MUSIC_TRACKS.length;
     musicState.index = safeIndex;
     musicState.audio.src = encodeURI(COMBAT_MUSIC_TRACKS[safeIndex]);
     musicState.audio.volume = musicState.volume;
-    updateNowPlaying();
-
+    ensureNowPlaying();
     const playPromise = musicState.audio.play();
     if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.then(() => { musicState.playBlocked = false; })
-        .catch(() => { musicState.playBlocked = true; });
+      playPromise.then(() => { musicState.playBlocked = false; }).catch(() => { musicState.playBlocked = true; });
     }
   }
 
@@ -77,7 +66,6 @@
     playCombatMusicTrack(getNextMusicIndex());
   }
 
-  // Mantido para compatibilidade com a interface antiga.
   function changeMusicNow() {
     if (typeof musicState === "undefined" || !musicState.audio) return;
     musicState.audio.pause();
@@ -91,14 +79,12 @@
   window.startMusic = function() {
     if (musicState.started) return;
     if (typeof ensureMusicVolume === "function") ensureMusicVolume();
-
     musicState.started = true;
     musicState.audio = new Audio();
     musicState.audio.preload = "auto";
     musicState.audio.loop = false;
     musicState.audio.volume = getMusicVolume();
     musicState.volume = musicState.audio.volume;
-
     musicState.audio.addEventListener("ended", playNextMusicTrack);
     musicState.audio.addEventListener("error", () => {
       musicState.playBlocked = true;
@@ -108,14 +94,9 @@
       musicState.playBlocked = false;
       if (typeof setMusicStatus === "function") setMusicStatus("Música: tocando", false);
     });
-
-    // Primeiro ciclo também é embaralhado, sem repetição.
     refillMusicBag();
     playNextMusicTrack();
   };
 
-  // O player antigo continua existindo apenas como elemento oculto.
-  setInterval(() => {
-    try { ensureNowPlaying(); } catch (_) {}
-  }, 1000);
+  setInterval(() => { try { ensureNowPlaying(); } catch (_) {} }, 1000);
 })();
