@@ -11,7 +11,6 @@
     "sunwalker_fishing"
   ];
 
-  // ESPADA DE RELÂMPAGO: totalmente desativada até segunda ordem.
   function disableLightning() {
     try {
       localStorage.removeItem(LIGHTNING_KEY);
@@ -29,7 +28,6 @@
   disableLightning();
   setInterval(disableLightning, 250);
 
-  // REPUTAÇÃO: congela o valor e remove toda a apresentação visual.
   let reputationLocked = false;
   function disableReputation() {
     try {
@@ -58,7 +56,6 @@
   disableReputation();
   setInterval(disableReputation, 500);
 
-  // PESCARIA: scripts de entrada são removidos do HTML e este bloqueio limpa estados antigos.
   function disableFishing() {
     FISHING_KEYS.forEach(key => localStorage.removeItem(key));
     try {
@@ -74,7 +71,6 @@
   disableFishing();
   setInterval(disableFishing, 500);
 
-  // Repainta a antiga área de pesca com o terreno normal depois do render base.
   function coverFishingArea() {
     if (typeof ctx === "undefined" || typeof Camera === "undefined" || typeof CONFIG === "undefined") return;
     const minX = 82, maxX = 94, minY = 80, maxY = 94;
@@ -96,29 +92,24 @@
     ctx.restore();
   }
 
-  // CHEFÃO INVOCADOR: destaque visual rosa sem alterar os outros inimigos.
+  // O invocador usa a própria camisa para o destaque rosa. Não há círculo/halo.
   function tintSummonerBosses() {
     if (typeof ctx === "undefined" || typeof Camera === "undefined" || typeof enemies === "undefined") return;
-    const now = performance.now();
-    ctx.save();
-    ctx.globalCompositeOperation = "source-atop";
     for (const enemy of enemies) {
       if (!enemy || !enemy.isBoss || enemy.type !== "summonerBoss" || enemy.isDead()) continue;
       const s = Camera.worldToScreen(enemy.x, enemy.y);
-      const pulse = 0.28 + Math.sin(now / 240) * 0.06;
-      ctx.fillStyle = `rgba(235,70,145,${pulse})`;
-      ctx.beginPath();
-      ctx.ellipse(s.x, s.y - 28, 24, 38, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "rgba(255,125,190,.45)";
-      ctx.beginPath();
-      ctx.arc(s.x, s.y - 48, 12, 0, Math.PI * 2);
-      ctx.fill();
+      const scale = (0.82 + (CONFIG.bossExtraPixels || 0) / 60) * CONFIG.zoom;
+      ctx.save();
+      ctx.translate(s.x, s.y - 12 * scale);
+      ctx.scale(scale, scale);
+      ctx.fillStyle = "#b83273";
+      ctx.fillRect(-13, -12, 26, 23);
+      ctx.fillStyle = "#e05a9b";
+      ctx.fillRect(-9, -8, 18, 15);
+      ctx.restore();
     }
-    ctx.restore();
   }
 
-  // Remove o antigo aviso/nome da música.
   function hideMusicNames() {
     ["sunwalkerNowPlaying", "musicNowPlaying", "musicStatus"].forEach(id => {
       const el = document.getElementById(id);
@@ -132,7 +123,7 @@
   hideMusicNames();
   setInterval(hideMusicNames, 300);
 
-  // HABILIDADES ATIVAS: somente TAB, canto inferior esquerdo.
+  // HABILIDADES ATIVAS: somente TAB, no lado oposto ao mapa (canto inferior direito).
   let skillVisible = false;
   function refreshSkills() {
     let el = document.getElementById("alpha185SkillStatus");
@@ -141,10 +132,10 @@
       el.id = "alpha185SkillStatus";
       document.body.appendChild(el);
     }
-    el.style.cssText = "position:fixed;left:18px;bottom:18px;top:auto;z-index:10004;display:none;gap:6px;flex-direction:column;pointer-events:none;font:700 11px Arial;letter-spacing:.45px;";
+    el.style.cssText = "position:fixed;right:18px;bottom:18px;left:auto;top:auto;z-index:10004;display:none;gap:6px;flex-direction:column;align-items:flex-end;pointer-events:none;font:700 11px Arial;letter-spacing:.45px;";
     const items = [];
     if (localStorage.getItem("sunwalker_ally_sheath") === "true") items.push("BAINHA — CONVERSÃO");
-    el.innerHTML = items.map(text => `<div style="padding:7px 10px;background:rgba(8,12,16,.94);border:1px solid rgba(232,180,59,.7);border-left:3px solid #e8b43b;border-radius:5px;color:#f5ead0;box-shadow:0 3px 12px rgba(0,0,0,.4)">${text}<span style="display:block;margin-top:3px;font-size:9px;color:#9be09b;letter-spacing:.7px">ATIVA</span></div>`).join("");
+    el.innerHTML = items.map(text => `<div style="padding:7px 10px;background:rgba(8,12,16,.94);border:1px solid rgba(232,180,59,.7);border-right:3px solid #e8b43b;border-radius:5px;color:#f5ead0;box-shadow:0 3px 12px rgba(0,0,0,.4);text-align:right">${text}<span style="display:block;margin-top:3px;font-size:9px;color:#9be09b;letter-spacing:.7px">ATIVA</span></div>`).join("");
     el.style.display = skillVisible && items.length ? "flex" : "none";
   }
   window.addEventListener("keydown", event => {
@@ -156,7 +147,6 @@
   setInterval(refreshSkills, 300);
   refreshSkills();
 
-  // RANKING: guarda somente a maior onda e a data em que o recorde foi alcançado.
   function readCurrentWave() {
     const el = document.getElementById("nextWaveNumber");
     if (!el) return 1;
@@ -173,7 +163,6 @@
   }
   setInterval(saveHighestWave, 500);
 
-  // MENU INICIAL.
   function injectMenuStyles() {
     if (document.getElementById("alpha185MenuStyles")) return;
     const style = document.createElement("style");
@@ -225,7 +214,6 @@
     showMenu();
   }
 
-  // Encadeia o render final sem substituir os sistemas base.
   const baseDrawGame = window.drawGame;
   if (typeof baseDrawGame === "function" && !window.__alpha185DrawHook) {
     window.__alpha185DrawHook = true;
