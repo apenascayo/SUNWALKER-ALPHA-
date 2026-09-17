@@ -1,5 +1,5 @@
 (() => {
-  // Alpha 1.8: mantém o DASH original do jogo (teleporte),
+  // Alpha 1.8.5: mantém o DASH original do jogo (teleporte),
   // com som e animação do sistema base. Defesa e corrida continuam desativadas.
   const originalInputDown = Input.down.bind(Input);
   const originalInputConsume = Input.consume.bind(Input);
@@ -40,6 +40,8 @@
     if (!godModeActive() || typeof player === "undefined" || !player) return;
     player.hp = player.maxHp;
     player.coins = 999999;
+    // Modo Deus: stamina infinita.
+    player.stamina = player.maxStamina;
     player.state = player.isDead() ? "idle" : player.state;
     const gameOver = document.getElementById("gameOver");
     if (gameOver) gameOver.classList.add("hidden");
@@ -58,10 +60,8 @@
   setInterval(() => { setupGodMode(); updateGodModeUI(); refreshGodModeResources(); }, 100);
   setupGodMode();
 
-  const script = document.createElement("script");
-  script.src = "js/alpha18-audio-ui.js";
-  script.defer = false;
-  document.head.appendChild(script);
+  // O sistema antigo de áudio Alpha 1.8 não é mais carregado aqui,
+  // para não sobrescrever a playlist aleatória da Alpha 1.8.5.
 
   const merchantScript = document.createElement("script");
   merchantScript.src = "js/merchant-skill-ui-alpha18.js";
