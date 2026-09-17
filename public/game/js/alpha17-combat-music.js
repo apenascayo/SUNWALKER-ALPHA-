@@ -89,10 +89,4 @@
     playNextMusicTrack();
   };
   setInterval(() => { try { ensureNowPlaying(); } catch (_) {} }, 1000);
-
-  // Carrega os controles finais da Alpha 1.8.5 depois dos scripts base.
-  const script = document.createElement("script");
-  script.src = "js/alpha185-systems.js?v=185";
-  script.defer = false;
-  document.body.appendChild(script);
 })();
