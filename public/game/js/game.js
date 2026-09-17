@@ -500,11 +500,9 @@ function updatePlayer(dt, now) {
 }
 
 function updateEnemies(dt, now) {
-  // Atualiza cada zona uma vez por frame, fora do loop de inimigos.
   updateBossDangerZones(now);
   for (const enemy of enemies) {
     enemy.damageNumbers = enemy.damageNumbers.filter(d => d.until > now);
-
     if (enemy.isDead()) continue;
     if (enemy.burnUntil > now) {
       if (now >= enemy.burnNextTick) {
@@ -520,11 +518,9 @@ function updateEnemies(dt, now) {
         }
       }
     }
-
     if (enemy.state === "stunned" && now >= enemy.stunnedUntil) enemy.state = "chasing";
     updateEnemyCombat(enemy, now);
     if (enemy.isBoss && !enemy.attackPhase && enemy.state === "idle") enemy.state = "chasing";
-
     if (enemy.state === "stunned" || enemy.state === "dead" || enemy.state === "attacking") {
       enemy.x += enemy.knockbackX * dt;
       enemy.y += enemy.knockbackY * dt;
@@ -532,7 +528,6 @@ function updateEnemies(dt, now) {
       enemy.knockbackY *= Math.max(0, 1 - dt * 8);
       continue;
     }
-
     if (enemy.state === "hurt") {
       if (now >= enemy.hurtUntil) enemy.state = "chasing";
       enemy.x += enemy.knockbackX * dt;
@@ -541,7 +536,6 @@ function updateEnemies(dt, now) {
       enemy.knockbackY *= Math.max(0, 1 - dt * 9);
       continue;
     }
-
     if (enemy.state === "chasing") {
       const dx = player.x - enemy.x;
       const dy = player.y - enemy.y;
@@ -551,9 +545,7 @@ function updateEnemies(dt, now) {
       const speed = CONFIG.enemySpeed * enemy.speedMultiplier * (enemy.type === "archer" ? CONFIG.archerSpeedMultiplier : 1);
       enemy.x += dirX * speed * dt;
       enemy.y += dirY * speed * dt;
-      enemy.facing = Math.abs(dx) > Math.abs(dy)
-        ? (dx > 0 ? "right" : "left")
-        : (dy > 0 ? "down" : "up");
+      enemy.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
     }
   }
   updateFireBombZones(now);
@@ -567,24 +559,8 @@ function createFireBombZone(now) {
   const impactY = player.y + direction.y * distance;
   const halfLength = (CONFIG.fireBombHitboxLengthPixels || 150) / pixelsPerWorldUnit / 2;
   const halfWidth = (CONFIG.fireBombHitboxWidthPixels || 50) / pixelsPerWorldUnit / 2;
-  fireBombZones.push({
-    x: impactX,
-    y: impactY,
-    dirX: direction.x,
-    dirY: direction.y,
-    halfLength,
-    halfWidth,
-    start: now,
-    end: now + CONFIG.fireBombDuration,
-    nextTicks: {}
-  });
-  fireBombImpacts.push({
-    x: impactX,
-    y: impactY,
-    start: now,
-    end: now + 450,
-    ring: 0
-  });
+  fireBombZones.push({ x: impactX, y: impactY, dirX: direction.x, dirY: direction.y, halfLength, halfWidth, start: now, end: now + CONFIG.fireBombDuration, nextTicks: {} });
+  fireBombImpacts.push({ x: impactX, y: impactY, start: now, end: now + 450, ring: 0 });
 }
 
 function updateFireBombZones(now) {
@@ -622,7 +598,6 @@ function updateHUD() {
     damageOverlay.classList.toggle("active", player.damageFlashUntil > now);
     damageOverlay.classList.toggle("alert", lowHealth);
   }
-
   const hpText = document.getElementById("hpText");
   const staminaText = document.getElementById("staminaText");
   const hpBar = document.getElementById("hpBar");
@@ -642,7 +617,6 @@ function updateHUD() {
   const xpText = document.getElementById("xpText");
   const xpBar = document.getElementById("xpBar");
   const dashStatus = document.getElementById("dashStatus");
-
   if (hpText) hpText.textContent = `${hp}/${Math.round(player.maxHp)}`;
   if (staminaText) staminaText.textContent = `${st}/${Math.round(player.maxStamina)}`;
   if (hpBar) hpBar.style.width = `${hp / player.maxHp * 100}%`;
@@ -650,12 +624,10 @@ function updateHUD() {
   if (coordX) coordX.textContent = player.x.toFixed(1);
   if (coordY) coordY.textContent = player.y.toFixed(1);
   if (direction) direction.textContent = player.direction.toUpperCase();
-
   let stateText = player.state.toUpperCase();
   if (player.burning) stateText = "QUEIMANDO";
   if (player.isRunning) stateText = "CORRENDO";
   if (state) state.textContent = stateText;
-
   if (reputationText) reputationText.textContent = `${Math.round(player.reputation)}/${CONFIG.reputationMax}`;
   if (reputationBar) reputationBar.style.width = `${player.reputation / CONFIG.reputationMax * 100}%`;
   if (weaponText) weaponText.textContent = (weaponMode === "sword" ? "ESPADA" : "BAINHA") + (isAiming ? " (MIRANDO)" : "");
@@ -667,9 +639,7 @@ function updateHUD() {
   if (waveCountdown) waveCountdown.textContent = waveSeconds + "s";
   if (xpText) xpText.textContent = `NÍVEL ${player.level} — XP ${Math.round(player.xp)}/100`;
   if (xpBar) xpBar.style.width = `${player.xp}%`;
-  if (dashStatus) dashStatus.textContent = player.dashCount >= 5
-    ? `DASH: RECARGA ${Math.ceil(Math.max(0, player.dashRegenAt - now) / 1000)}s`
-    : `DASHES: ${5 - player.dashCount}/5`;
+  if (dashStatus) dashStatus.textContent = player.dashCount >= 5 ? `DASH: RECARGA ${Math.ceil(Math.max(0, player.dashRegenAt - now) / 1000)}s` : `DASHES: ${5 - player.dashCount}/5`;
   updateControlText();
 }
 
@@ -679,20 +649,17 @@ function update(dt, now) {
     if (merchantOpen) toggleMerchant(false);
     else if (!settingsOpen) togglePause();
   }
-
   if (Input.consume("i") && !paused && !settingsOpen && !merchantOpen) toggleInventory();
   if (Input.consume("f") && !paused && !settingsOpen && !merchantOpen && !levelUpOpen) useSelectedItem();
   if (Input.consume("e") && !paused && !settingsOpen && !inventoryOpen) {
     if (merchantOpen) toggleMerchant(false);
     else if (isNearMerchant()) toggleMerchant(true);
   }
-
   if (paused || settingsOpen || merchantOpen || inventoryOpen || levelUpOpen) {
     updateHUD();
     updateMessage(now);
     return;
   }
-
   updatePlayer(dt, now);
   updatePlayerCombat(now, dt);
   updateEnemies(dt, now);
@@ -816,13 +783,11 @@ function refreshSkillUI() {
   const item = document.getElementById("itemMelador");
   const itemState = document.getElementById("itemMeladorState");
   if (item) item.classList.toggle("active", player.inventory.melador > 0);
-  if (itemState) itemState.textContent = player.inventory.melador > 0
-    ? `NO INVENTÁRIO: ${player.inventory.melador}` : `COMPRAR — ${CONFIG.meladorCost} MOEDAS`;
+  if (itemState) itemState.textContent = player.inventory.melador > 0 ? `NO INVENTÁRIO: ${player.inventory.melador}` : `COMPRAR — ${CONFIG.meladorCost} MOEDAS`;
   const bomb = document.getElementById("itemFireBomb");
   const bombState = document.getElementById("itemFireBombState");
   if (bomb) bomb.classList.toggle("active", player.inventory.fireBomb > 0);
-  if (bombState) bombState.textContent = player.inventory.fireBomb > 0
-    ? `NO INVENTÁRIO: ${player.inventory.fireBomb}` : `COMPRAR — ${CONFIG.fireBombCost} MOEDAS`;
+  if (bombState) bombState.textContent = player.inventory.fireBomb > 0 ? `NO INVENTÁRIO: ${player.inventory.fireBomb}` : `COMPRAR — ${CONFIG.fireBombCost} MOEDAS`;
   const mc = document.getElementById("merchantCoins");
   if (mc) mc.textContent = String(player.coins);
 }
@@ -1009,18 +974,6 @@ function startGame() {
   paused = false;
   lastTime = 0;
   startMusic();
-  // Keep the first play() in the PLAY click handler for autoplay policies.
-  musicState.audio.src = encodeURI(MUSIC_TRACKS[0]);
-  musicState.audio.volume = musicState.volume;
-  const playPromise = musicState.audio.play();
-  if (playPromise && typeof playPromise.catch === "function") {
-    playPromise.then(() => { musicState.playBlocked = false; })
-      .catch(() => {
-        musicState.playBlocked = true;
-        setMusicStatus("Música bloqueada pelo navegador. Clique PLAY novamente.", true);
-      });
-  }
-  musicState.index = 1;
 }
 
 document.getElementById("playButton").addEventListener("click", startGame);
