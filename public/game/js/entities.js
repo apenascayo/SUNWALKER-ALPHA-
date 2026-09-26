@@ -29,12 +29,14 @@ class Player {
     this.coins = 0;
     this.xp = 0;
     this.level = 1;
+    this.skillPoints = 0;
+    this.swordSkillTree = { fire: 0, lightning: 0, sheath: 0 };
     this.upgrades = { health: 0, attack: 0, speed: 0, stamina: 0 };
     this.statMultipliers = { health: 1, attack: 1, speed: 1, stamina: 1 };
     this.inventory = { melador: 0, fireBomb: 0 };
     this.selectedItem = "melador";
     this.skills = { fireSword: false, repelSheath: false };
-    this.owned = { fireSword: false, repelSheath: false };
+    this.owned = { fireSword: false, repelSheath: false, blunderbuss: false };
     this.fireBurnUntil = 0;
     this.fireBurnNextTick = 0;
     this.burning = false;

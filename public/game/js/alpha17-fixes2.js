@@ -266,7 +266,7 @@
   };
 
   function hasLightning() {
-    return !!(player.skills && player.skills.lightningSword) || localStorage.getItem("sunwalker_lightning_sword") === "true";
+    return typeof getSwordElementStage === "function" ? getSwordElementStage("lightning") >= 2 : false;
   }
 
   function applyLightning(enemy, attackId, now) {
@@ -283,7 +283,8 @@
     if (source !== "sword" || !hasLightning() || !enemy || enemy.isDead()) return;
     const attackId = player.attack ? player.attack.id : `${now}-${enemy.id}`;
     applyLightning(enemy, attackId, now);
-    const radius = worldPixels(LIGHTNING_RADIUS_PX);
+    const stage = typeof getSwordElementStage === "function" ? getSwordElementStage("lightning") : 2;
+    const radius = stage >= 5 ? worldPixels(LIGHTNING_RADIUS_PX * 2.4) : worldPixels(LIGHTNING_RADIUS_PX * (stage >= 4 ? 1.7 : stage >= 3 ? 1.35 : 1));
     for (const other of enemies) {
       if (other === enemy || other.isDead()) continue;
       if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= radius) applyLightning(other, attackId, now);
@@ -296,7 +297,9 @@
       if (!enemy.lightningUntil) continue;
       if (now >= enemy.lightningUntil) { enemy.lightningUntil = 0; continue; }
       if (now >= enemy.lightningNextTick) {
-        const amount = Math.max(1, Math.round(enemy.maxHp * 0.10));
+        const stage = typeof getSwordElementStage === "function" ? getSwordElementStage("lightning") : 2;
+        const percent = [0, 0, 0.10, 0.12, 0.14, 0.18][stage] || 0.10;
+        const amount = Math.max(1, Math.round(enemy.maxHp * percent));
         enemy.hp = Math.max(0, enemy.hp - amount);
         enemy.damageNumbers.push({ value: amount, x: enemy.x, y: enemy.y - .8, until: now + 650 });
         enemy.hitFlashUntil = now + 120;
@@ -314,11 +317,13 @@
     for (const enemy of enemies) {
       if (enemy.isDead() || !enemy.lightningUntil || now >= enemy.lightningUntil) continue;
       const s = Camera.worldToScreen(enemy.x, enemy.y);
+      const stage = enemy.swordElementStage || (typeof getSwordElementStage === "function" ? getSwordElementStage("lightning") : 2);
+      const visualScale = [1, 1, 1.25, 1.55, 1.9, 2.5][stage] || 1;
       const pulse = 0.55 + Math.sin(now / 55 + enemy.id) * .35;
       ctx.save();
       ctx.strokeStyle = `rgba(80,180,255,${pulse})`; ctx.shadowColor = "#39aaff"; ctx.shadowBlur = 14; ctx.lineWidth = 3;
       for (let i = 0; i < 5; i++) {
-        const a = now / 90 + i * 1.25; const r = 8 + (i % 3) * 5;
+        const a = now / 90 + i * 1.25; const r = (8 + (i % 3) * 5) * visualScale;
         ctx.beginPath();
         ctx.moveTo(s.x, s.y - 20); ctx.lineTo(s.x + Math.cos(a) * r, s.y - 20 + Math.sin(a) * r); ctx.lineTo(s.x + Math.cos(a + .45) * (r + 8), s.y - 20 + Math.sin(a + .45) * (r + 8)); ctx.lineTo(s.x + Math.cos(a + .8) * r, s.y - 20 + Math.sin(a + .8) * r); ctx.stroke();
       }
@@ -449,42 +454,25 @@
     if (lightning) lightning.textContent = localStorage.getItem("sunwalker_lightning_sword") === "true" ? "ATIVADA" : `COMPRAR — ${LIGHTNING_COST} MOEDAS`;
     if (ally) ally.textContent = localStorage.getItem("sunwalker_ally_sheath") === "true" ? "ATIVADA" : `COMPRAR — ${ALLY_COST} MOEDAS`;
     player.skills = player.skills || {};
-    player.skills.lightningSword = localStorage.getItem("sunwalker_lightning_sword") === "true";
-    player.skills.allySheath = localStorage.getItem("sunwalker_ally_sheath") === "true";
+    player.skills.lightningSword = false;
+    player.skills.allySheath = false;
   }
 
   function setupMerchantTabs() {
+    // As habilidades foram transferidas para a Árvore da Espada. O Mercador mantém somente os itens.
+    ["merchantAbilitiesTab", "merchantItemsTab", "merchantTabsNav", "skillFire", "skillRepel", "skillLightning", "skillAlly"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    });
     const modal = document.querySelector(".merchant-modal");
-    if (!modal || modal.dataset.alpha17Tabs) return;
-    modal.dataset.alpha17Tabs = "true";
-    const close = document.getElementById("closeMerchantButton");
-    const abilityIds = ["skillFire", "skillRepel"];
-    const itemIds = ["itemMelador", "itemFireBomb"];
-    const abilities = document.createElement("div"); abilities.id = "merchantAbilitiesTab";
-    const items = document.createElement("div"); items.id = "merchantItemsTab";
-    const nav = document.createElement("div"); nav.style.cssText = "display:flex;gap:8px;margin:14px 0;";
-    function tabButton(text, active) {
-      const b = document.createElement("button"); b.textContent = text;
-      b.style.cssText = `flex:1;padding:10px;border:1px solid #8d7b55;border-radius:5px;background:${active ? "#806b49" : "#25292a"};color:#fff;cursor:pointer;font-weight:700;`;
-      return b;
-    }
-    const ab = tabButton("HABILIDADES", true), ib = tabButton("ITENS", false); nav.append(ab, ib);
-    for (const id of abilityIds) { const el = document.getElementById(id); if (el) abilities.appendChild(el); }
-    for (const id of itemIds) { const el = document.getElementById(id); if (el) items.appendChild(el); }
-    const lightning = makePowerCard("skillLightning", "ESPADA — RELÂMPAGO", LIGHTNING_COST, "Ao acertar, aplica choque por 3s. Causa 10% da vida máxima do inimigo por segundo e alcança inimigos em até 20px.", "sunwalker_lightning_sword", "RELÂMPAGO");
-    const ally = makePowerCard("skillAlly", "BAINHA — CONVERSÃO", ALLY_COST, "40% de chance de transformar um inimigo atingido em aliado por 5s. O aliado fica azul e ataca o inimigo mais próximo.", "sunwalker_ally_sheath", "CONVERSÃO");
-    abilities.append(lightning, ally);
-    modal.insertBefore(nav, close); modal.insertBefore(abilities, close); modal.insertBefore(items, close); items.style.display = "none";
-    ab.addEventListener("click", () => { abilities.style.display = "block"; items.style.display = "none"; ab.style.background = "#806b49"; ib.style.background = "#25292a"; });
-    ib.addEventListener("click", () => { abilities.style.display = "none"; items.style.display = "block"; ib.style.background = "#806b49"; ab.style.background = "#25292a"; });
-    updatePowerCards();
+    if (modal) modal.classList.add("items-only");
   }
 
   setInterval(() => { try { setupMerchantTabs(); updatePowerCards(); } catch (_) {} }, 500);
   setInterval(() => {
     if (!player || !player.skills) return;
-    player.skills.lightningSword = localStorage.getItem("sunwalker_lightning_sword") === "true";
-    player.skills.allySheath = localStorage.getItem("sunwalker_ally_sheath") === "true";
+    player.skills.lightningSword = false;
+    player.skills.allySheath = false;
   }, 400);
 
   console.info("[Sunwalker] Alpha 1.8: invocador na Onda 4, HUD restaurado e musica aleatoria corrigida.");

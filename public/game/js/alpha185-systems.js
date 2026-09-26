@@ -2,7 +2,6 @@
   // Sunwalker Alpha 1.8.5 — sistemas temporariamente desativados + menu/ranking/HUD.
   const VERSION = "Alpha 1.8.5";
   const RANKING_KEY = "sunwalker_highest_wave";
-  const LIGHTNING_KEY = "sunwalker_lightning_sword";
   const FISHING_KEYS = [
     "sunwalker_fishing_rod",
     "sunwalker_fishing_owned",
@@ -10,23 +9,6 @@
     "sunwalker_fish",
     "sunwalker_fishing"
   ];
-
-  function disableLightning() {
-    try {
-      localStorage.removeItem(LIGHTNING_KEY);
-      if (typeof player !== "undefined" && player) {
-        if (!player.skills) player.skills = {};
-        player.skills.lightningSword = false;
-      }
-      const card = document.getElementById("skillLightning");
-      if (card) card.remove();
-      document.querySelectorAll("[id*='lightning'],[id*='Lightning'],[class*='lightning'],[class*='Lightning']").forEach(el => {
-        if (el.id !== "alpha185Menu") el.style.display = "none";
-      });
-    } catch (_) {}
-  }
-  disableLightning();
-  setInterval(disableLightning, 250);
 
   let reputationLocked = false;
   function disableReputation() {

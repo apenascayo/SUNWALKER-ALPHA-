@@ -22,6 +22,7 @@ function drawGame() {
   drawFireBombZones();
   drawFireBombImpacts();
   drawEntities();
+  drawBlunderbussTargetHighlight();
   drawAttackFX();
   drawHitSparks();
   if (CONFIG.debug) drawDebug();
@@ -328,6 +329,7 @@ function drawCharacterBody(x, y, dir, baseScale, opts = {}) {
   const defending = opts.defending;
   const attacking = opts.attacking;
   const running = opts.running;
+  const blunderbuss = !!opts.blunderbuss;
 
   ctx.save();
   ctx.translate(s.x, s.y - 12 * scale);
@@ -389,12 +391,30 @@ function drawCharacterBody(x, y, dir, baseScale, opts = {}) {
   else if (dir === "up") ctx.fillRect(-3, -25, 6, 3);
   else ctx.fillRect(-3, -15, 6, 3);
 
-  ctx.strokeStyle = "#cfd7df";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(dir === "left" ? -10 : dir === "right" ? 10 : 7, 0);
-  ctx.lineTo(dir === "left" ? -23 : dir === "right" ? 23 : 7, dir === "up" ? -20 : dir === "down" ? 20 : 0);
-  ctx.stroke();
+  if (blunderbuss) {
+    // Arma de fogo visualmente distinta da espada: coronha escura + cano metálico largo.
+    const side = dir === "left" ? -1 : 1;
+    const angle = ({up:-Math.PI/2, upRight:-Math.PI/4, right:0, downRight:Math.PI/4, down:Math.PI/2, downLeft:3*Math.PI/4, left:Math.PI, upLeft:-3*Math.PI/4})[dir] ?? 0;
+    ctx.save();
+    ctx.rotate(angle);
+    ctx.fillStyle = "#5b351d";
+    ctx.fillRect(5, -3, 19, 6);
+    ctx.fillStyle = "#25282c";
+    ctx.fillRect(18, -4, 15, 8);
+    ctx.fillStyle = "#8b6a3c";
+    ctx.fillRect(3, -2, 7, 4);
+    ctx.strokeStyle = "#b7b9b9";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(29, -5, 7, 10);
+    ctx.restore();
+  } else {
+    ctx.strokeStyle = "#cfd7df";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(dir === "left" ? -10 : dir === "right" ? 10 : 7, 0);
+    ctx.lineTo(dir === "left" ? -23 : dir === "right" ? 23 : 7, dir === "up" ? -20 : dir === "down" ? 20 : 0);
+    ctx.stroke();
+  }
 
   if (defending) {
     ctx.strokeStyle = "#8dd7ff";
@@ -440,11 +460,50 @@ function drawAimRing(p) {
   ctx.ellipse(s.x, cy, radius, radius * 0.55, 0, ang - 0.45, ang + 0.45);
   ctx.stroke();
 
-  const mx = s.x + Math.cos(ang) * radius;
-  const my = cy + Math.sin(ang) * radius * 0.55;
-  ctx.fillStyle = "rgba(255,255,255,.9)";
+  const mx = Input.mouseX;
+  const my = Input.mouseY;
+  const isGun = attackType === "blunderbuss";
+  if (isGun) {
+    const target = typeof getBlunderbussTarget === "function" ? getBlunderbussTarget(mouseDirection()) : null;
+    const aimColor = target ? "rgba(255,85,65,.98)" : "rgba(255,235,145,.98)";
+    ctx.strokeStyle = aimColor;
+    ctx.lineWidth = target ? 3 : 2;
+    ctx.beginPath();
+    ctx.moveTo(mx - 13, my); ctx.lineTo(mx - 4, my);
+    ctx.moveTo(mx + 4, my); ctx.lineTo(mx + 13, my);
+    ctx.moveTo(mx, my - 13); ctx.lineTo(mx, my - 4);
+    ctx.moveTo(mx, my + 4); ctx.lineTo(mx, my + 13);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(mx, my, target ? 9 : 7, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = aimColor;
+    ctx.beginPath(); ctx.arc(mx, my, 2.5, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.fillStyle = "rgba(255,255,255,.9)";
+    ctx.beginPath();
+    ctx.arc(s.x + Math.cos(ang) * radius, cy + Math.sin(ang) * radius * 0.55, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawBlunderbussTargetHighlight() {
+  if (weaponMode !== "blunderbuss" || !isAiming || !player || player.isDead()) return;
+  const target = typeof getBlunderbussTarget === "function" ? getBlunderbussTarget(mouseDirection()) : null;
+  if (!target) return;
+  const now = performance.now();
+  const s = Camera.worldToScreen(target.x, target.y);
+  const pulse = 1 + Math.sin(now / 90) * 0.12;
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,70,55,.95)";
+  ctx.lineWidth = 3;
+  ctx.shadowColor = "#ff4035";
+  ctx.shadowBlur = 12;
   ctx.beginPath();
-  ctx.arc(mx, my, 3.5, 0, Math.PI * 2);
+  ctx.ellipse(s.x, s.y - 14, 24 * pulse, 31 * pulse, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,55,45,.12)";
   ctx.fill();
   ctx.restore();
 }
@@ -477,6 +536,7 @@ function drawPlayer(p) {
     defending: p.isDefending(),
     attacking: !!p.attack,
     sheath: p.attack && p.attack.type === "sheath",
+    blunderbuss: weaponMode === "blunderbuss",
     running: p.isRunning
   });
   if (p.fireBurnUntil > performance.now()) drawBurningEffect(p.x, p.y);
@@ -495,6 +555,16 @@ function drawPlayer(p) {
       ctx.restore();
     }
 
+  }
+
+  if (p.blunderbussFlashUntil && p.blunderbussFlashUntil > performance.now()) {
+    const s = Camera.worldToScreen(p.x, p.y);
+    const d = directionVector(p.direction);
+    const a = Math.atan2(d.y + d.x, d.x - d.y);
+    ctx.save(); ctx.translate(s.x, s.y - 18); ctx.rotate(a);
+    ctx.fillStyle = "rgba(255,220,120,.9)";
+    ctx.beginPath(); ctx.arc(28, 0, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
 
   if (p.attack) {
@@ -589,11 +659,13 @@ function drawEnemy(e) {
   }
 
   if (e.burnUntil > nowT) {
+    const fireStage = e.swordElement === "fire" ? (e.swordElementStage || 2) : 2;
+    const fireScale = [1, 1, 1.25, 1.55, 1.9, 2.5][fireStage] || 1;
     for (let i = 0; i < 5; i++) {
       const t = nowT / 90 + i * 1.7;
-      const fx = s.x + Math.sin(t) * 10;
-      const fy = s.y - 12 - ((t * 9) % 34);
-      const r = 7 - ((t * 9) % 34) / 8;
+      const fx = s.x + Math.sin(t) * 10 * fireScale;
+      const fy = s.y - 12 - ((t * 9) % (34 * fireScale));
+      const r = (7 - ((t * 9) % (34 * fireScale)) / 8) * fireScale;
       ctx.beginPath();
       ctx.fillStyle = i % 2 ? "rgba(255,170,40,.75)" : "rgba(255,90,30,.7)";
       ctx.arc(fx, fy, Math.max(1.5, r), 0, Math.PI * 2);
@@ -601,7 +673,7 @@ function drawEnemy(e) {
     }
     ctx.beginPath();
     ctx.fillStyle = "rgba(255,120,40,.18)";
-    ctx.ellipse(s.x, s.y - 16, 18, 24, 0, 0, Math.PI * 2);
+    ctx.ellipse(s.x, s.y - 16, 18 * fireScale, 24 * fireScale, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -700,8 +772,27 @@ function drawAttackFX() {
       ctx.arc(Math.cos(a) * r, Math.sin(a) * r, 2 + Math.sin(now / 90 + i) * 1.6, 0, Math.PI * 2);
       ctx.fill();
     }
+  } else if (player.attack && player.attack.type === "blunderbuss") {
+    const wave = 28 + t * 70;
+    ctx.strokeStyle = `rgba(255,220,150,${0.9 * fade})`;
+    ctx.lineWidth = 10 - t * 6;
+    ctx.beginPath();
+    ctx.moveTo(12, 0);
+    ctx.lineTo(wave, -12);
+    ctx.moveTo(12, 0);
+    ctx.lineTo(wave, 12);
+    ctx.stroke();
+    for (let i = 0; i < 8; i++) {
+      const a = -0.28 + i * 0.08;
+      const r = wave * (0.55 + (i % 3) * 0.12);
+      ctx.fillStyle = `rgba(255,190,90,${0.75 * fade})`;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * r, Math.sin(a) * r, 2 + (i % 2), 0, Math.PI * 2);
+      ctx.fill();
+    }
   } else {
-    const wave = 34 + t * 46;
+    const sheathScale = typeof getSheathVisualScale === "function" ? getSheathVisualScale() : 1;
+    const wave = (34 + t * 46) * sheathScale;
     ctx.strokeStyle = `rgba(240,215,160,${0.9 * fade})`;
     ctx.lineWidth = 12 - t * 6;
     ctx.lineCap = "round";
@@ -737,10 +828,11 @@ function drawHitSparks() {
     if (life <= 0) continue;
     const p = Camera.worldToScreen(fx.x, fx.y);
     const sword = fx.type === "sword";
+    const gun = fx.type === "blunderbuss";
     ctx.save();
     ctx.globalAlpha = life;
-    ctx.strokeStyle = sword ? "rgba(255,255,255,.95)" : "rgba(255,225,160,.95)";
-    ctx.lineWidth = sword ? 4 : 3;
+    ctx.strokeStyle = gun ? "rgba(255,180,70,.98)" : sword ? "rgba(255,255,255,.95)" : "rgba(255,225,160,.95)";
+    ctx.lineWidth = gun ? 5 : sword ? 4 : 3;
     const r = (sword ? 16 : 20) + (1 - life) * (sword ? 26 : 40);
     ctx.beginPath();
     ctx.arc(p.x, p.y - 14, r, 0, Math.PI * 2);

@@ -1,6 +1,6 @@
 let attackSequence = 0;
-let weaponMode = "sword"; // "sword" | "sheath" — alternado com a tecla R
-let isAiming = false;     // botao direito segurado
+let weaponMode = "sword"; // "sword" | "sheath" | "blunderbuss"
+let isAiming = false;     // botao direito segurado para mirar
 
 const DIRECTION_VECTORS = {
   up: {x:0,y:-1}, upRight:{x:1,y:-1}, right:{x:1,y:0}, downRight:{x:1,y:1},
@@ -38,6 +38,7 @@ function addReputation(amount, reason) {
 
 function tryPlayerAttack(type, now, directionOverride = null) {
   if (player.isDead() || player.isDefending()) return;
+  if (type === "blunderbuss") return fireBlunderbuss(now, directionOverride || mouseDirection());
   if (player.attack || now < player.attackCooldownUntil) return;
   const isSword = type === "sword";
   const cost = isSword ? CONFIG.swordStaminaCost : CONFIG.sheathStaminaCost;
@@ -57,6 +58,54 @@ function tryPlayerAttack(type, now, directionOverride = null) {
   playSound(isSword ? "sword" : "sheath");
 }
 
+function getBlunderbussTarget(direction = mouseDirection()) {
+  if (typeof enemies === "undefined") return null;
+  const dir = directionVector(direction);
+  let target = null, best = Infinity;
+  const maxRange = 16;
+  const cone = 0.24;
+  for (const enemy of enemies) {
+    if (!enemy || enemy.isDead()) continue;
+    const dx = enemy.x - player.x, dy = enemy.y - player.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxRange || dist < 0.01) continue;
+    const dot = (dx * dir.x + dy * dir.y) / dist;
+    if (dot < Math.cos(cone)) continue;
+    if (dist < best) { best = dist; target = enemy; }
+  }
+  return target;
+}
+
+window.getBlunderbussTarget = getBlunderbussTarget;
+
+function fireBlunderbuss(now, direction) {
+  if (!player.owned || !player.owned.blunderbuss) {
+    showMessage("COMPRE O TRABUCO NO MERCADOR");
+    return;
+  }
+  if (player.blunderbussCooldownUntil && now < player.blunderbussCooldownUntil) return;
+  if (!isAiming) { showMessage("SEGURE O BOTÃO DIREITO PARA MIRAR"); return; }
+  const dir = directionVector(direction || mouseDirection());
+  player.direction = direction || mouseDirection();
+  player.blunderbussCooldownUntil = now + 850;
+  player.blunderbussFlashUntil = now + 180;
+  player.blunderbussShotUntil = now + 260;
+  playSound("trabuco");
+
+  const target = getBlunderbussTarget(direction || mouseDirection());
+  if (target) {
+    target.hp = 0;
+    target.state = "dead";
+    target.attackPhase = null;
+    target.hitFlashUntil = now + 180;
+    rewardEnemy(target, "kill");
+    hitSparks.push({ x: target.x, y: target.y, start: now, until: now + 360, type: "blunderbuss" });
+    showMessage("TRABUCO! INIMIGO ELIMINADO");
+  } else {
+    showMessage("TRABUCO — TIRO NO ACERTOU");
+  }
+}
+
 function playerAttackHit(now) {
   if (!player.attack || player.attack.hitApplied) return;
   const attack = player.attack;
@@ -64,7 +113,8 @@ function playerAttackHit(now) {
   attack.hitApplied = true;
   const sword = attack.type === "sword";
   const range = Math.max(CONFIG.attackCircleRadius, sword ? CONFIG.swordRange : CONFIG.sheathRange);
-  const damage = (sword ? CONFIG.swordDamage : CONFIG.sheathDamage) * player.statMultipliers.attack;
+  const skillDamage = sword && typeof getSwordSkillDamageMultiplier === "function" ? getSwordSkillDamageMultiplier() : 1;
+  const damage = (sword ? CONFIG.swordDamage : CONFIG.sheathDamage) * player.statMultipliers.attack * skillDamage;
   const dir = directionVector(attack.direction);
 
   for (const enemy of enemies) {
@@ -81,9 +131,24 @@ function playerAttackHit(now) {
         enemy.hurtUntil = enemy.staggerUntil;
         enemy.attackPhase = null;
         spawnHitSpark(enemy.x, enemy.y, now, "sword");
-        if (player.skills && player.skills.fireSword && !enemy.isDead()) {
-          enemy.burnUntil = now + CONFIG.fireBurnDuration;
+        const fireStage = typeof getSwordElementStage === "function" ? getSwordElementStage("fire") : 0;
+        if (fireStage >= 2 && !enemy.isDead()) {
+          enemy.burnUntil = now + (CONFIG.fireBurnDuration + Math.max(0, fireStage - 2) * 500);
           enemy.burnNextTick = now + 1000;
+          enemy.swordElement = "fire";
+          enemy.swordElementStage = fireStage;
+          if (fireStage >= 5) {
+            const radius = typeof getSwordSkillAreaRadius === "function" ? getSwordSkillAreaRadius("fire") : 1.65;
+            for (const other of enemies) {
+              if (other === enemy || other.isDead()) continue;
+              if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= radius) {
+                other.burnUntil = now + CONFIG.fireBurnDuration;
+                other.burnNextTick = now + 1000;
+                other.swordElement = "fire";
+                other.swordElementStage = fireStage;
+              }
+            }
+          }
           showMessage(`CORTE DE FOGO  -${damage}`);
         } else {
           showMessage(`CORTE  -${damage}`);
@@ -91,7 +156,6 @@ function playerAttackHit(now) {
       } else {
         // BAINHA: foco em repulsão (knockback forte na direção oposta ao jogador).
         damageEnemy(enemy, damage, 0, 0, now, "sheath");
-        const skill = !!(player.skills && player.skills.repelSheath);
         const pushX = dx, pushY = dy;
         const len = Math.hypot(pushX, pushY) || 1;
         const ax = (pushX / len) * 0.65 + dir.x * 0.35;
@@ -100,29 +164,16 @@ function playerAttackHit(now) {
         const nx = ax / alen, ny = ay / alen;
         enemy.knockbackX = nx * CONFIG.sheathKnockbackForce;
         enemy.knockbackY = ny * CONFIG.sheathKnockbackForce;
-        if (skill) {
-          // Empurrão instantâneo de 20px convertidos para unidades do mundo.
-          const units = CONFIG.skillSheathPushPixels / (CONFIG.TILE_WIDTH / 2);
-          enemy.x += nx * units;
-          enemy.y += ny * units;
-        }
+
         enemy.attackPhase = null;
         enemy.staggerUntil = now + CONFIG.sheathKnockbackDuration;
         enemy.stunHits++;
-        const needed = skill ? CONFIG.skillSheathStunHits : CONFIG.sheathStunHitsRequired;
+        const needed = CONFIG.sheathStunHitsRequired;
         if (enemy.stunHits >= needed) {
           enemy.stunHits = 0;
-          if (skill) {
-            enemy.state = "stunned";
-            enemy.stunnedUntil = now + CONFIG.skillSheathStunDuration;
-            enemy.staggerUntil = enemy.stunnedUntil;
-            enemy.knockbackX = 0; enemy.knockbackY = 0;
-            rewardEnemy(enemy, "knockout");
-          } else {
-            enemy.hp = 0;
-            enemy.state = "dead";
-            rewardEnemy(enemy, "knockout");
-          }
+          enemy.hp = 0;
+          enemy.state = "dead";
+          rewardEnemy(enemy, "knockout");
           addReputation(CONFIG.reputationSheathStunGain, "DESMAIO");
           showMessage("INIMIGO DESMAIOU");
         } else {
@@ -214,17 +265,20 @@ function updatePlayerCombat(now, dt) {
   if (player.isDead()) return;
   const mode = getAttackControlMode();
 
-  // R alterna entre espada e bainha nos dois modos de controle.
+  // R alterna entre as armas compradas.
   if (Input.consume("r")) {
-    weaponMode = weaponMode === "sword" ? "sheath" : "sword";
-    showMessage(weaponMode === "sword" ? "ESPADA" : "BAINHA");
+    const modes = ["sword", "sheath"];
+    if (player.owned && player.owned.blunderbuss) modes.push("blunderbuss");
+    let index = modes.indexOf(weaponMode);
+    if (index < 0) index = 0;
+    weaponMode = modes[(index + 1) % modes.length];
+    showMessage(weaponMode === "sword" ? "ESPADA" : weaponMode === "sheath" ? "BAINHA" : "TRABUCO — MIRE COM O BOTÃO DIREITO");
   }
 
-  if (mode === "mouse") {
-    // Botao direito segurado = mirar; a direcao segue o mouse enquanto mira.
+  if (mode === "mouse" || weaponMode === "blunderbuss") {
+    // Para o trabuco, mirar e atirar são obrigatoriamente feitos com o mouse.
     isAiming = Input.mouseDown(2);
     if (isAiming) player.direction = mouseDirection();
-    // Botao esquerdo = atacar com a arma selecionada.
     if (Input.consumeMouse(0)) {
       tryPlayerAttack(weaponMode, now, isAiming ? mouseDirection() : player.direction);
     }

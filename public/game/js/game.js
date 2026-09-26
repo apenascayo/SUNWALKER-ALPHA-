@@ -1,4 +1,4 @@
-﻿const canvas = document.getElementById("gameCanvas");
+const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 let player = new Player();
@@ -630,7 +630,7 @@ function updateHUD() {
   if (state) state.textContent = stateText;
   if (reputationText) reputationText.textContent = `${Math.round(player.reputation)}/${CONFIG.reputationMax}`;
   if (reputationBar) reputationBar.style.width = `${player.reputation / CONFIG.reputationMax * 100}%`;
-  if (weaponText) weaponText.textContent = (weaponMode === "sword" ? "ESPADA" : "BAINHA") + (isAiming ? " (MIRANDO)" : "");
+  if (weaponText) weaponText.textContent = (weaponMode === "sword" ? "ESPADA" : weaponMode === "sheath" ? "BAINHA" : "TRABUCO") + (isAiming ? " (MIRANDO)" : "");
   if (coinText) coinText.textContent = String(player.coins);
   if (coinCounterText) coinCounterText.textContent = String(player.coins);
   const waveSeconds = Math.max(0, Math.ceil((nextRespawnAt - now) / 1000));
@@ -725,6 +725,7 @@ const SOUNDS = {
   level: "assets/sfx/level.mp3",
   coins: "assets/sfx/coins.mp3",
   bomba: "assets/sfx/bomba.mp3",
+  trabuco: "assets/sfx/trabuco.mp3",
   xp: "assets/sfx/xp.mp3"
 };
 
@@ -772,14 +773,6 @@ function merchantDistance() { return Math.hypot(player.x - merchant.x, player.y 
 function isNearMerchant() { return merchantDistance() <= CONFIG.merchantInteractRange; }
 
 function refreshSkillUI() {
-  const f = document.getElementById("skillFire");
-  const r = document.getElementById("skillRepel");
-  if (f) f.classList.toggle("active", !!player.owned.fireSword);
-  if (r) r.classList.toggle("active", !!player.owned.repelSheath);
-  const fs = document.getElementById("skillFireState");
-  const rs = document.getElementById("skillRepelState");
-  if (fs) fs.textContent = player.owned.fireSword ? (player.skills.fireSword ? "EQUIPADA" : "EQUIPAR") : `COMPRAR — ${CONFIG.skillFireCost} MOEDAS`;
-  if (rs) rs.textContent = player.owned.repelSheath ? (player.skills.repelSheath ? "EQUIPADA" : "EQUIPAR") : `COMPRAR — ${CONFIG.skillRepelCost} MOEDAS`;
   const item = document.getElementById("itemMelador");
   const itemState = document.getElementById("itemMeladorState");
   if (item) item.classList.toggle("active", player.inventory.melador > 0);
@@ -852,6 +845,22 @@ function buyMelador() {
   refreshSkillUI();
 }
 
+function buyBlunderbuss() {
+  if (player.owned && player.owned.blunderbuss) {
+    weaponMode = "blunderbuss";
+    showMessage("TRABUCO EQUIPADO — SEGURE O BOTÃO DIREITO PARA MIRAR");
+    refreshSkillUI();
+    return;
+  }
+  if (player.coins < 100) { showMessage("MOEDAS INSUFICIENTES (100)"); return; }
+  player.coins -= 100;
+  player.owned = player.owned || {};
+  player.owned.blunderbuss = true;
+  weaponMode = "blunderbuss";
+  showMessage("TRABUCO COMPRADO E EQUIPADO");
+  refreshSkillUI();
+}
+
 function buyFireBomb() {
   if (player.coins < CONFIG.fireBombCost) { showMessage(`MOEDAS INSUFICIENTES (${CONFIG.fireBombCost})`); return; }
   player.coins -= CONFIG.fireBombCost;
@@ -887,6 +896,7 @@ function chooseUpgrade(key) {
   }
   playSound("xp");
   player.level++;
+  if (typeof awardSwordSkillPoint === "function") awardSwordSkillPoint();
   player.xp = 0;
   levelUpOpen = false;
   toggleLevelUp(false);
@@ -928,10 +938,10 @@ document.getElementById("closeSettingsButton").addEventListener("click", () => t
 document.querySelectorAll('input[name="attackMode"]').forEach(r => r.addEventListener("change", e => setAttackControlMode(e.target.value)));
 document.getElementById("debugToggle").addEventListener("change", e => setDebug(e.target.checked));
 document.getElementById("closeMerchantButton").addEventListener("click", () => toggleMerchant(false));
-document.getElementById("skillFire").addEventListener("click", () => buyOrToggleSkill("fireSword", CONFIG.skillFireCost, "ESPADA DE FOGO"));
-document.getElementById("skillRepel").addEventListener("click", () => buyOrToggleSkill("repelSheath", CONFIG.skillRepelCost, "REPULSÃO APRIMORADA"));
 document.getElementById("itemMelador").addEventListener("click", buyMelador);
 document.getElementById("itemFireBomb").addEventListener("click", buyFireBomb);
+const blunderbussButton = document.getElementById("itemBlunderbuss");
+if (blunderbussButton) blunderbussButton.addEventListener("click", buyBlunderbuss);
 document.getElementById("closeInventoryButton").addEventListener("click", () => toggleInventory(false));
 document.querySelectorAll("[data-upgrade]").forEach(button => button.addEventListener("click", () => chooseUpgrade(button.getAttribute("data-upgrade"))));
 

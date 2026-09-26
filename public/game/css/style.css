@@ -114,7 +114,7 @@ body.debug-mode .debug-only { display: block; }
 .settings-modal input[type="range"]::-moz-range-thumb { cursor: grab; }
 #musicStatus { min-height: 18px; margin-top: 8px; font-size: 12px; }
 .settings-help { margin:16px 0; color:#bbb; line-height:1.6; font-size:13px; }
-.merchant-modal { text-align:left; min-width:430px; max-width:520px; }
+.merchant-modal { text-align:left; min-width:530px; max-width:620px; }
 .inventory-modal, .level-modal { min-width: min(430px, calc(100vw - 32px)); }
 #inventoryList { display:grid; gap:8px; margin:18px 0; }
 .inventory-item { padding:12px; text-align:left; background:#25252a; border:1px solid #555; cursor:pointer; }
@@ -142,6 +142,26 @@ body.debug-mode .debug-only { display: block; }
   .wave-status { top: 8px; min-width: 130px; }
   .coin-counter { top: 8px; right: 8px; }
   .top-actions { top: 52px; right: 8px; }
-  .merchant-modal { min-width: min(430px, calc(100vw - 20px)); }
+  .merchant-modal { min-width: min(530px, calc(100vw - 20px)); }
   .settings-modal { width: min(430px, calc(100vw - 20px)); padding: 20px; }
 }
+
+
+/* Árvore de habilidades da espada */
+.skill-points-banner{display:inline-block;padding:8px 12px;border:1px solid rgba(232,180,59,.5);border-radius:7px;background:rgba(232,180,59,.12);color:#f5d77b;font-weight:800;letter-spacing:.4px}
+.sword-tree-modal{min-width:min(900px,calc(100vw - 24px));max-width:900px;max-height:88vh;overflow:auto}
+.sword-tree-head{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:16px}
+.sword-tree-head h1{margin-bottom:6px}
+.sword-tree-legend{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 18px;color:#c9c9cf;font-size:11px}
+.sword-tree-legend span{padding:5px 8px;border:1px solid #42444b;border-radius:5px;background:#1d1e22}
+.sword-branches{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.sword-branch{padding:14px;border:1px solid #46474d;border-radius:10px;background:linear-gradient(145deg,#26272c,#1b1c20)}
+.sword-branch h2{font-size:15px;margin:0 0 5px}.sword-branch p{font-size:12px;color:#aaaeb8;margin:0 0 14px}
+.skill-nodes{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.sword-skill-node{position:relative;min-height:128px;padding:8px 6px;border:1px solid #444851;border-radius:8px;background:#17181c;color:#ddd;cursor:pointer;text-align:left;transition:.12s ease}
+.sword-skill-node:hover:not(.locked){transform:translateY(-2px);border-color:#a98b55}.sword-skill-node.unlocked{border-color:#e8b43b;background:linear-gradient(145deg,rgba(101,79,32,.48),#1d1d21)}.sword-skill-node.current{box-shadow:0 0 0 2px rgba(232,180,59,.22) inset}.sword-skill-node.locked{opacity:.42;cursor:not-allowed}
+.sword-skill-node .node-stage{font-size:10px;color:#8f949e;font-weight:800}.sword-skill-node h3{font-size:11px;margin:6px 0}.sword-skill-node p{font-size:10px;line-height:1.35;color:#b7bac2;margin:0}.sword-skill-node .node-status{position:absolute;bottom:7px;left:6px;right:6px;font-size:9px;color:#f5d77b;font-weight:800}
+.sword-sheath-note{margin:16px 0;padding:10px;border-radius:7px;background:rgba(214,192,154,.08);border:1px solid rgba(214,192,154,.25);color:#c9c0ae;font-size:12px}
+.level-attribute-note{margin:12px 0 7px!important;color:#9c9ca4!important;font-size:11px!important}
+#openSwordTreeFromLevel{margin-bottom:8px}
+@media(max-width:700px){.sword-branches{grid-template-columns:1fr}.skill-nodes{grid-template-columns:repeat(5,minmax(75px,1fr));overflow-x:auto}.sword-tree-head{flex-direction:column;align-items:flex-start}}

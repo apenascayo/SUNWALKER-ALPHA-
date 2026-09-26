@@ -46,6 +46,11 @@
       ["skillLightning", "sunwalker_lightning_sword"],
       ["skillAlly", "sunwalker_ally_sheath"]
     ];
+    const gunState = document.getElementById("itemBlunderbussState");
+    const gunCard = document.getElementById("itemBlunderbuss");
+    const ownedGun = !!(typeof player !== "undefined" && player && player.owned && player.owned.blunderbuss);
+    if (gunState) gunState.textContent = ownedGun ? "COMPRADO — R PARA EQUIPAR" : "COMPRAR — 100 MOEDAS";
+    if (gunCard) gunCard.classList.toggle("active", ownedGun);
     for (const [id, key] of cards) {
       const card = document.getElementById(id);
       if (!card) continue;
