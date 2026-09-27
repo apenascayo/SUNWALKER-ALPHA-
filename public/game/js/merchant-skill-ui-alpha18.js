@@ -48,9 +48,16 @@
     ];
     const gunState = document.getElementById("itemBlunderbussState");
     const gunCard = document.getElementById("itemBlunderbuss");
+    const ammoCard = document.getElementById("itemAmmoBox");
+    const ammoState = document.getElementById("itemAmmoBoxState");
     const ownedGun = !!(typeof player !== "undefined" && player && player.owned && player.owned.blunderbuss);
     if (gunState) gunState.textContent = ownedGun ? "COMPRADO — R PARA EQUIPAR" : "COMPRAR — 100 MOEDAS";
     if (gunCard) gunCard.classList.toggle("active", ownedGun);
+    if (ammoCard) {
+      ammoCard.hidden = !ownedGun;
+      ammoCard.classList.toggle("active", !!(player && player.inventory && player.inventory.ammoBox > 0));
+    }
+    if (ammoState && ownedGun) ammoState.textContent = `COMPRAR CAIXA DE BALAS — 50 MOEDAS (CAIXAS: ${player.inventory.ammoBox || 0} | BALAS: ${player.blunderbussAmmo || 0})`;
     for (const [id, key] of cards) {
       const card = document.getElementById(id);
       if (!card) continue;

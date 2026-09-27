@@ -1,6 +1,6 @@
 (() => {
-  // Alpha 1.8: efeitos sonoros, musica aleatoria, contador de onda, modo deus e ambientacao.
-  document.title = "Sunwalker — Alpha 1.8";
+  // Alpha 1.9: efeitos sonoros, musica aleatoria, contador de onda, modo deus e ambientacao.
+  document.title = "Sunwalker — Alpha 1.9";
   const EFFECTS = { shock: "assets/sfx/danoeletrico.mp3", bossSword: "assets/sfx/sowrdinimigo.mp3", arrow: "assets/sfx/arrow.mp3" };
   const SHOCK_DURATION = 9000;
   const GOD_KEY = "sunwalker_god_mode";

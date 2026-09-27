@@ -83,24 +83,43 @@ function fireBlunderbuss(now, direction) {
     showMessage("COMPRE O TRABUCO NO MERCADOR");
     return;
   }
+  if (player.blunderbussAmmo <= 0) {
+    showMessage("TRABUCO SEM MUNIÇÃO — COMPRE UMA CAIXA NO MERCADOR");
+    return;
+  }
   if (player.blunderbussCooldownUntil && now < player.blunderbussCooldownUntil) return;
   if (!isAiming) { showMessage("SEGURE O BOTÃO DIREITO PARA MIRAR"); return; }
   const dir = directionVector(direction || mouseDirection());
   player.direction = direction || mouseDirection();
-  player.blunderbussCooldownUntil = now + 850;
+  player.blunderbussAmmo = Math.max(0, player.blunderbussAmmo - 1);
+  player.blunderbussCooldownUntil = now + CONFIG.blunderbussCooldown;
   player.blunderbussFlashUntil = now + 180;
   player.blunderbussShotUntil = now + 260;
   playSound("trabuco");
+  // O som enviado para o projeto representa a recarga/cooldown entre disparos.
+  playSound("rechargeGun");
 
   const target = getBlunderbussTarget(direction || mouseDirection());
   if (target) {
-    target.hp = 0;
-    target.state = "dead";
-    target.attackPhase = null;
+    // O trabuco tem dano por quantidade fixa de tiros: comuns = 1, arqueiros = 2, chefes = 5.
+    const requiredHits = target.isBoss ? 5 : (target.type === "archer" ? 2 : 1);
+    target.blunderbussHits = (target.blunderbussHits || 0) + 1;
+    // Cada disparo remove uma fração real da barra de vida. O último tiro finaliza.
+    target.hp = Math.max(0, target.maxHp * (1 - Math.min(target.blunderbussHits, requiredHits) / requiredHits));
     target.hitFlashUntil = now + 180;
-    rewardEnemy(target, "kill");
+    target.state = "hurt";
+    target.hurtUntil = now + 180;
+    target.attackPhase = null;
     hitSparks.push({ x: target.x, y: target.y, start: now, until: now + 360, type: "blunderbuss" });
-    showMessage("TRABUCO! INIMIGO ELIMINADO");
+
+    if (target.blunderbussHits >= requiredHits) {
+      target.hp = 0;
+      target.state = "dead";
+      rewardEnemy(target, "kill");
+      showMessage(requiredHits === 1 ? "TRABUCO! INIMIGO ELIMINADO" : `TRABUCO! ${requiredHits}/${requiredHits} TIROS — INIMIGO ELIMINADO`);
+    } else {
+      showMessage(`TRABUCO! ${target.blunderbussHits}/${requiredHits} TIROS`);
+    }
   } else {
     showMessage("TRABUCO — TIRO NO ACERTOU");
   }
@@ -166,21 +185,36 @@ function playerAttackHit(now) {
         enemy.knockbackY = ny * CONFIG.sheathKnockbackForce;
 
         enemy.attackPhase = null;
-        enemy.staggerUntil = now + CONFIG.sheathKnockbackDuration;
-        enemy.stunHits++;
-        const needed = CONFIG.sheathStunHitsRequired;
-        if (enemy.stunHits >= needed) {
+        const sheathStage = typeof getSwordSkillStage === "function" ? getSwordSkillStage("sheath") : 0;
+        const knockbackScale = 1 + sheathStage * 0.18;
+        enemy.knockbackX *= knockbackScale;
+        enemy.knockbackY *= knockbackScale;
+        enemy.staggerUntil = now + CONFIG.sheathKnockbackDuration + sheathStage * 120;
+        enemy.stunHits = (enemy.stunHits || 0) + 1;
+        const needed = Math.max(1, CONFIG.sheathStunHitsRequired - Math.floor(sheathStage / 2));
+        // Estágio V: existe chance de converter um inimigo comum para aliado.
+        if (sheathStage >= 5 && !enemy.isBoss && Math.random() < 0.30) {
+          enemy.isAlly = true;
+          enemy.state = "ally";
+          enemy.target = null;
+          enemy.attackPhase = null;
           enemy.stunHits = 0;
-          enemy.hp = 0;
-          enemy.state = "dead";
-          rewardEnemy(enemy, "knockout");
+          enemy.knockbackX = 0;
+          enemy.knockbackY = 0;
+          showMessage("DOMÍNIO DA BAINHA — INIMIGO VIROU ALIADO!");
+        } else if (enemy.stunHits >= needed) {
+          enemy.stunHits = 0;
+          enemy.state = "stunned";
+          enemy.hurtUntil = now + 1200 + sheathStage * 180;
+          enemy.staggerUntil = enemy.hurtUntil;
           addReputation(CONFIG.reputationSheathStunGain, "DESMAIO");
-          showMessage("INIMIGO DESMAIOU");
+          spawnHitSpark(enemy.x, enemy.y, now, "sheath");
+          showMessage("INIMIGO ATORDOADO");
         } else {
           enemy.state = "hurt";
           enemy.hurtUntil = enemy.staggerUntil;
           spawnHitSpark(enemy.x, enemy.y, now, "sheath");
-          showMessage("REPULSÃO!");
+          showMessage(`REPULSÃO — ESTÁGIO ${sheathStage}`);
         }
       }
     }
@@ -307,6 +341,12 @@ function updatePlayerCombat(now, dt) {
 
 function updateEnemyCombat(enemy, now) {
   if (enemy.isDead()) return;
+  // Aliados não atacam nem recebem a lógica de combate hostil.
+  if (enemy.isAlly) {
+    enemy.attackPhase = null;
+    enemy.state = "ally";
+    return;
+  }
   if (enemy.state === "stunned") return;
   if (enemy.staggerUntil && now < enemy.staggerUntil) return;
   if (enemy.state === "hurt" && enemy.hurtUntil && now < enemy.hurtUntil) return;
@@ -315,6 +355,8 @@ function updateEnemyCombat(enemy, now) {
       enemy.state = "attacking";
       if (now - enemy.attackStartedAt >= CONFIG.archerChargeMs) {
         enemy.attackPhase = "strike";
+        // Som da flecha no momento exato do disparo.
+        if (typeof playSound === "function") playSound("arrow", { volume: 0.95 });
         const dx = player.x - enemy.x, dy = player.y - enemy.y;
         const dist = Math.hypot(dx, dy);
         const d = directionVector(enemy.archerTelegraphDirection);

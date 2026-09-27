@@ -1,5 +1,5 @@
 (() => {
-  // Alpha 1.8.5: mantém o DASH original do jogo (teleporte),
+  // Alpha 1.9: mantém o DASH original do jogo (teleporte),
   // com som e animação do sistema base. Defesa e corrida continuam desativadas.
   const originalInputDown = Input.down.bind(Input);
   const originalInputConsume = Input.consume.bind(Input);
@@ -31,6 +31,9 @@
   }
 
   function activateGodMode() {
+    if (typeof player !== "undefined" && player) {
+      localStorage.setItem("sunwalker_god_saved_coins", String(Math.max(0, Number(player.coins) || 0)));
+    }
     localStorage.setItem(GOD_KEY, "true");
     updateGodModeUI();
     refreshGodModeResources();
@@ -53,15 +56,22 @@
     if (!activate || !deactivate || activate.dataset.godBound === "true") return;
     activate.dataset.godBound = "true";
     activate.addEventListener("click", activateGodMode);
-    deactivate.addEventListener("click", () => { localStorage.removeItem(GOD_KEY); updateGodModeUI(); });
+    deactivate.addEventListener("click", () => {
+      const saved = Number(localStorage.getItem("sunwalker_god_saved_coins"));
+      localStorage.removeItem(GOD_KEY);
+      if (typeof player !== "undefined" && player && Number.isFinite(saved)) player.coins = saved;
+      localStorage.removeItem("sunwalker_god_saved_coins");
+      if (typeof refreshSkillUI === "function") refreshSkillUI();
+      updateGodModeUI();
+    });
     updateGodModeUI();
   }
 
   setInterval(() => { setupGodMode(); updateGodModeUI(); refreshGodModeResources(); }, 100);
   setupGodMode();
 
-  // O sistema antigo de áudio Alpha 1.8 não é mais carregado aqui,
-  // para não sobrescrever a playlist aleatória da Alpha 1.8.5.
+  // O sistema antigo de áudio Alpha 1.9 não é mais carregado aqui,
+  // para não sobrescrever a playlist aleatória da Alpha 1.9.
 
   const merchantScript = document.createElement("script");
   merchantScript.src = "js/merchant-skill-ui-alpha18.js";

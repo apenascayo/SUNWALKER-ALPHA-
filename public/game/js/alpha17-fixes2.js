@@ -1,5 +1,5 @@
 (() => {
-  // Correções e extensões finais da Alpha 1.8.
+  // Correções e extensões finais da Alpha 1.9.
   // Este arquivo trabalha sobre os sistemas base, sem substituir o DASH original.
 
   const FISHING_AREA = { minX: 82, maxX: 94, minY: 80, maxY: 94 };
@@ -148,7 +148,6 @@
   const baseDrawGame = window.drawGame;
   window.drawGame = function() {
     baseDrawGame();
-    drawFishingMarker();
     drawElementalEffects();
     drawAllyEffects();
     drawSummonerEffects();
@@ -184,7 +183,7 @@
     }
   };
 
-  // Alpha 1.8: o invocador passa a aparecer a partir da Onda 4.
+  // Alpha 1.9: o invocador passa a aparecer a partir da Onda 4.
   function ensureWave4Bosses() {
     if (typeof enemies === "undefined" || typeof waveCounter === "undefined" || typeof Enemy !== "function") return;
     if (waveCounter < 4) return;
@@ -475,5 +474,5 @@
     player.skills.allySheath = false;
   }, 400);
 
-  console.info("[Sunwalker] Alpha 1.8: invocador na Onda 4, HUD restaurado e musica aleatoria corrigida.");
+  console.info("[Sunwalker] Alpha 1.9: invocador na Onda 4, HUD restaurado e musica aleatoria corrigida.");
 })();

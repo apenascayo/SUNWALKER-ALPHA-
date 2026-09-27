@@ -1,10 +1,10 @@
-// Trilha de combate Alpha 1.8.5.
+// Trilha de combate Alpha 1.9.
 // Sorteio por ciclo: todas as faixas tocam uma vez antes de qualquer repetição.
 (() => {
   const COMBAT_MUSIC_TRACKS = [
     "assets/music/Sertão do Shakuhachi.wav",
     "assets/music/Sertão do Shakuhachi 2.wav",
-    "assets/music/Combaião Determinado.wav",
+    "assets/music/combiao-determinado.wav",
     "assets/music/Sertão de Lâmpadas 1 (1).wav",
     "assets/music/Sertão de Lâmpadas 2 (1).wav",
     "assets/music/Vaqueiro Entoada.wav",
@@ -79,7 +79,8 @@
     musicState.audio.addEventListener("ended", playNextMusicTrack);
     musicState.audio.addEventListener("error", () => {
       musicState.playBlocked = true;
-      if (typeof setMusicStatus === "function") setMusicStatus("Erro ao carregar a música.", true);
+      // Se uma faixa falhar, avance automaticamente para a próxima em vez de deixar a trilha parada.
+      setTimeout(() => { if (musicState.started) playNextMusicTrack(); }, 50);
     });
     musicState.audio.addEventListener("playing", () => {
       musicState.playBlocked = false;

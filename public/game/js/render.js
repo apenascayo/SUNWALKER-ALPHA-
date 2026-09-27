@@ -17,6 +17,8 @@ function drawGame() {
   ctx.fillRect(0, 0, viewportWidth, viewportHeight);
 
   drawMap();
+  // Casa segura: desenhada como terreno, antes de moedas, NPCs, efeitos e minimapa.
+  if (typeof window.drawSafeHouse === "function") window.drawSafeHouse();
   drawCoins();
   drawBossDangerZones();
   drawFireBombZones();
@@ -540,6 +542,31 @@ function drawPlayer(p) {
     running: p.isRunning
   });
   if (p.fireBurnUntil > performance.now()) drawBurningEffect(p.x, p.y);
+
+  if (itemEffect && itemEffect.until > performance.now()) {
+    const now = performance.now();
+    const progress = Math.min(1, Math.max(0, (now - itemEffect.startedAt) / (itemEffect.until - itemEffect.startedAt)));
+    const sfx = Camera.worldToScreen(p.x, p.y);
+    const isAmmo = itemEffect.type === "ammo";
+    const color = isAmmo ? "255,215,45" : "255,70,70";
+    ctx.save();
+    ctx.globalAlpha = (1 - progress) * 0.85;
+    ctx.strokeStyle = `rgba(${color},${(1-progress)*0.9})`;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(sfx.x, sfx.y - 18, 20 + progress * 34, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let i=0;i<8;i++) {
+      const a = i * Math.PI / 4 + progress * 1.5;
+      const r = 22 + progress * 30;
+      ctx.fillStyle = `rgba(${color},${(1-progress)*0.9})`;
+      ctx.beginPath(); ctx.arc(sfx.x + Math.cos(a)*r, sfx.y-18 + Math.sin(a)*r, 3.5*(1-progress)+1, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
+    ctx.fillStyle = `rgba(${color},${(1-progress)*0.95})`;
+    ctx.fillText(itemEffect.label, sfx.x, sfx.y - 52 - progress*10);
+    ctx.restore();
+  } else if (itemEffect) { itemEffect = null; }
 
   if (p.dashTrail && p.dashTrail.length) {
     const now = performance.now();

@@ -14,7 +14,7 @@
     };
   }
 
-  function drawFishingMinimapMarker() {
+  function drawSafeHouseMinimapMarker() {
     if (typeof ctx === "undefined" || typeof Camera === "undefined" || typeof getViewportSize !== "function") return;
     const size = 170, pad = 16;
     const viewport = getViewportSize();
@@ -26,7 +26,7 @@
     const rh = (94 - 80) * scale / 2;
 
     ctx.save();
-    ctx.fillStyle = "rgba(55,135,150,.72)";
+    ctx.fillStyle = "rgba(73,130,67,.78)";
     ctx.strokeStyle = "rgba(210,240,225,.95)";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -36,13 +36,12 @@
     ctx.fillStyle = "#e9dfb4";
     ctx.font = "bold 9px Arial";
     ctx.textAlign = "center";
-    ctx.fillText("PESCA", mx, my - Math.max(7, rh) - 3);
+    ctx.fillText("CASA SEGURA", mx, my - Math.max(7, rh) - 3);
     ctx.restore();
   }
 
   const previousDrawGame = window.drawGame;
   window.drawGame = function() {
     previousDrawGame();
-    drawFishingMinimapMarker();
   };
 })();

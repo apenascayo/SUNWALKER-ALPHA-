@@ -19,6 +19,7 @@ let merchantOpen = false;
 let inventoryOpen = false;
 let levelUpOpen = false;
 let gameStarted = false;
+let itemEffect = null;
 
 function getWaveMultiplier() { return 1 + Math.max(0, waveCounter - 1) * 0.02; }
 function getWaveInterval(wave) {
@@ -52,13 +53,25 @@ function spawnHitSpark(x, y, now, type) {
   });
 }
 
+function hasAvailableLevelUpgrade() {
+  return ["health", "attack", "speed", "stamina"].some(key => (player.upgrades[key] || 0) < 5);
+}
+
+function processAutomaticLevels() {
+  while (player.xp >= 100 && !hasAvailableLevelUpgrade()) {
+    player.xp -= 100;
+    player.level++;
+    if (typeof awardSwordSkillPoint === "function") awardSwordSkillPoint();
+  }
+}
+
 function addXp(amount, reason) {
-  if (player.isDead() || levelUpOpen) return;
-  player.xp = Math.min(100, player.xp + amount);
+  if (player.isDead()) return;
+  player.xp += amount;
   showMessage(`+${amount} XP — ${reason}`);
-  if (player.xp >= 100) {
-    if (!levelUpOpen) playSound("level");
-    player.xp = 100;
+  processAutomaticLevels();
+  if (player.xp >= 100 && hasAvailableLevelUpgrade() && !levelUpOpen) {
+    playSound("level");
     levelUpOpen = true;
     toggleLevelUp(true);
   }
@@ -398,8 +411,25 @@ function respawnWave(now) {
 }
 
 function updateCoins() {
+  const magnetLevel = Math.max(0, Math.min(3, Number(player.magnetLevel) || 0));
+  const magnetRadius = Number(CONFIG.magnetRangesPixels?.[magnetLevel] || 0);
+  const playerScreen = magnetLevel > 0 && typeof Camera !== "undefined" ? Camera.worldToScreen(player.x, player.y) : null;
   for (let i = coins.length - 1; i >= 0; i--) {
     const c = coins[i];
+    if (magnetRadius > 0 && playerScreen && typeof Camera !== "undefined") {
+      const coinScreen = Camera.worldToScreen(c.x, c.y);
+      const dx = playerScreen.x - coinScreen.x;
+      const dy = playerScreen.y - coinScreen.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance <= magnetRadius && distance > 8) {
+        const pull = Math.min(0.22, 0.055 + (magnetLevel * 0.025));
+        const dxWorld = player.x - c.x;
+        const dyWorld = player.y - c.y;
+        const worldDistance = Math.hypot(dxWorld, dyWorld) || 1;
+        c.x += (dxWorld / worldDistance) * pull;
+        c.y += (dyWorld / worldDistance) * pull;
+      }
+    }
     if (Math.hypot(player.x - c.x, player.y - c.y) <= CONFIG.coinPickupRange) {
       const volume = clamp(0.7 + c.value / 20, 0.7, 1.5) * getEffectsVolume();
       player.coins += c.value;
@@ -501,6 +531,7 @@ function updatePlayer(dt, now) {
 
 function updateEnemies(dt, now) {
   updateBossDangerZones(now);
+  const inSafeHouse = typeof window.isPlayerInSafeHouse === "function" && window.isPlayerInSafeHouse();
   for (const enemy of enemies) {
     enemy.damageNumbers = enemy.damageNumbers.filter(d => d.until > now);
     if (enemy.isDead()) continue;
@@ -519,6 +550,13 @@ function updateEnemies(dt, now) {
       }
     }
     if (enemy.state === "stunned" && now >= enemy.stunnedUntil) enemy.state = "chasing";
+    if (inSafeHouse) {
+      // A casa segura interrompe ataques e perseguições enquanto o jogador estiver dentro dela.
+      enemy.attackPhase = null;
+      enemy.bossDanger = null;
+      if (enemy.state === "attacking" || enemy.state === "chasing" || enemy.state === "idle") enemy.state = "idle";
+      continue;
+    }
     updateEnemyCombat(enemy, now);
     if (enemy.isBoss && !enemy.attackPhase && enemy.state === "idle") enemy.state = "chasing";
     if (enemy.state === "stunned" || enemy.state === "dead" || enemy.state === "attacking") {
@@ -630,7 +668,22 @@ function updateHUD() {
   if (state) state.textContent = stateText;
   if (reputationText) reputationText.textContent = `${Math.round(player.reputation)}/${CONFIG.reputationMax}`;
   if (reputationBar) reputationBar.style.width = `${player.reputation / CONFIG.reputationMax * 100}%`;
-  if (weaponText) weaponText.textContent = (weaponMode === "sword" ? "ESPADA" : weaponMode === "sheath" ? "BAINHA" : "TRABUCO") + (isAiming ? " (MIRANDO)" : "");
+  const weaponName = weaponMode === "sword" ? "ESPADA" : weaponMode === "sheath" ? "BAINHA" : "TRABUCO";
+  if (weaponText) weaponText.textContent = weaponName + (isAiming ? " (MIRANDO)" : "");
+  const weaponStatus = document.getElementById("weaponStatus");
+  const weaponIcon = document.getElementById("weaponIcon");
+  const weaponStatusName = document.getElementById("weaponStatusName");
+  const weaponAmmo = document.getElementById("weaponAmmo");
+  const weaponCooldown = document.getElementById("weaponCooldown");
+  if (weaponStatus) weaponStatus.dataset.weapon = weaponMode;
+  if (weaponIcon) weaponIcon.textContent = weaponMode === "sword" ? "⚔" : weaponMode === "sheath" ? "🗡" : "🔫";
+  if (weaponStatusName) weaponStatusName.textContent = weaponName;
+  if (weaponAmmo) weaponAmmo.textContent = weaponMode === "blunderbuss" ? `${player.blunderbussAmmo} BALAS` : "ARMA CORPO A CORPO";
+  if (weaponCooldown) {
+    const remaining = weaponMode === "blunderbuss" ? Math.max(0, player.blunderbussCooldownUntil - now) : 0;
+    weaponCooldown.textContent = remaining > 0 ? `RECARREGANDO ${(remaining / 1000).toFixed(1)}s` : (weaponMode === "blunderbuss" ? "PRONTO PARA ATIRAR" : "PRONTA");
+    weaponCooldown.classList.toggle("reloading", remaining > 0);
+  }
   if (coinText) coinText.textContent = String(player.coins);
   if (coinCounterText) coinCounterText.textContent = String(player.coins);
   const waveSeconds = Math.max(0, Math.ceil((nextRespawnAt - now) / 1000));
@@ -694,10 +747,44 @@ function showRuntimeError(error) {
   if (overlay) overlay.classList.remove("hidden");
 }
 
+function recoverStalledActors(now) {
+  // Recuperação defensiva: estados de animação nunca podem bloquear o ator indefinidamente.
+  if (player && !player.isDead()) {
+    if (player.attack && now - player.attack.startedAt > Math.max(1800, player.attack.duration * 4)) {
+      player.attack = null;
+      player.state = player.isDefending() ? "defending" : "idle";
+    }
+    if (!Number.isFinite(player.x) || !Number.isFinite(player.y)) {
+      player.x = 50; player.y = 54; player.state = "idle"; player.attack = null;
+    }
+  }
+  if (!Array.isArray(enemies)) return;
+  for (const enemy of enemies) {
+    if (!enemy || enemy.isDead()) continue;
+    if (!Number.isFinite(enemy.x) || !Number.isFinite(enemy.y)) {
+      enemy.x = Number.isFinite(enemy.spawnX) ? enemy.spawnX : 50;
+      enemy.y = Number.isFinite(enemy.spawnY) ? enemy.spawnY : 50;
+      enemy.attackPhase = null; enemy.state = "idle";
+    }
+    if (enemy.state === "hurt" && enemy.hurtUntil && now - enemy.hurtUntil > 1800) {
+      enemy.hurtUntil = 0; enemy.staggerUntil = 0; enemy.attackPhase = null; enemy.state = "chasing";
+    }
+    if (enemy.state === "stunned" && enemy.stunnedUntil && now - enemy.stunnedUntil > 1800) {
+      enemy.stunnedUntil = 0; enemy.attackPhase = null; enemy.state = "chasing";
+    }
+    if (enemy.attackPhase && now - (enemy.attackStartedAt || now) > 5000) {
+      enemy.attackPhase = null; enemy.attackCooldownUntil = now + 250; enemy.state = "chasing";
+    }
+  }
+}
+
 function gameLoop(timestamp) {
   try {
     const dt = calculateDeltaTime(timestamp);
-    if (!runtimeError) update(dt, timestamp);
+    if (!runtimeError) {
+      recoverStalledActors(timestamp);
+      update(dt, timestamp);
+    }
     if (!runtimeError) drawGame();
   } catch (error) {
     showRuntimeError(error);
@@ -718,6 +805,7 @@ const SOUNDS = {
   damage: "assets/sfx/somdor.mp3",
   dash: "assets/sfx/dash.mp3",
   sheath: "assets/sfx/bainha.mp3",
+  arrow: "assets/sfx/arrow.mp3",
   npcHurt: "assets/sfx/hurtnpc.mp3",
   openbag: "assets/sfx/openbag.mp3",
   swordnpc: "assets/sfx/swordnpc.mp3",
@@ -726,6 +814,9 @@ const SOUNDS = {
   coins: "assets/sfx/coins.mp3",
   bomba: "assets/sfx/bomba.mp3",
   trabuco: "assets/sfx/trabuco.mp3",
+  rechargeGun: "assets/sfx/recharge-gun.wav",
+  heal: "assets/sfx/cura.mp3",
+  ammoBox: "assets/sfx/balas.mp3",
   xp: "assets/sfx/xp.mp3"
 };
 
@@ -781,6 +872,27 @@ function refreshSkillUI() {
   const bombState = document.getElementById("itemFireBombState");
   if (bomb) bomb.classList.toggle("active", player.inventory.fireBomb > 0);
   if (bombState) bombState.textContent = player.inventory.fireBomb > 0 ? `NO INVENTÁRIO: ${player.inventory.fireBomb}` : `COMPRAR — ${CONFIG.fireBombCost} MOEDAS`;
+  const blunderbuss = document.getElementById("itemBlunderbuss");
+  const blunderbussState = document.getElementById("itemBlunderbussState");
+  const ammoBox = document.getElementById("itemAmmoBox");
+  const ammoBoxState = document.getElementById("itemAmmoBoxState");
+  const magnet = document.getElementById("itemMagnet");
+  const magnetState = document.getElementById("itemMagnetState");
+  const hasBlunderbuss = !!(player.owned && player.owned.blunderbuss);
+  if (blunderbuss) blunderbuss.classList.toggle("active", hasBlunderbuss);
+  if (blunderbussState) blunderbussState.textContent = hasBlunderbuss ? "COMPRADO — R PARA EQUIPAR" : "COMPRAR — 100 MOEDAS";
+  if (ammoBox) {
+    ammoBox.hidden = !hasBlunderbuss;
+    ammoBox.classList.toggle("active", (player.inventory.ammoBox || 0) > 0);
+  }
+  if (ammoBoxState && hasBlunderbuss) {
+    ammoBoxState.textContent = `COMPRAR CAIXA DE BALAS — ${CONFIG.blunderbussAmmoBoxCost} MOEDAS (CAIXAS: ${player.inventory.ammoBox || 0} | BALAS: ${player.blunderbussAmmo || 0})`;
+  }
+  const magnetLevel = Math.max(0, Math.min(3, Number(player.magnetLevel) || 0));
+  if (magnet) magnet.classList.toggle("active", magnetLevel > 0);
+  if (magnetState) {
+    magnetState.textContent = magnetLevel >= 3 ? `NÍVEL 3 — RAIO ${CONFIG.magnetRangesPixels[3]}px — MÁXIMO` : `COMPRAR NÍVEL ${magnetLevel + 1} — ${CONFIG.magnetCosts[magnetLevel + 1]} MOEDAS — RAIO ${CONFIG.magnetRangesPixels[magnetLevel + 1]}px`;
+  }
   const mc = document.getElementById("merchantCoins");
   if (mc) mc.textContent = String(player.coins);
 }
@@ -802,7 +914,8 @@ function refreshInventoryUI() {
   list.innerHTML = "";
   [
     { key: "melador", label: "MELADOR", count: player.inventory.melador },
-    { key: "fireBomb", label: "BOMBA DE FOGO", count: player.inventory.fireBomb }
+    { key: "fireBomb", label: "BOMBA DE FOGO", count: player.inventory.fireBomb },
+    { key: "ammoBox", label: "CAIXA DE BALAS", count: player.inventory.ammoBox || 0 }
   ].forEach(entry => {
     const item = document.createElement("button");
     item.type = "button";
@@ -814,7 +927,24 @@ function refreshInventoryUI() {
   if (message) message.textContent = "Selecione um item ativo e pressione F para usar.";
 }
 
+function triggerItemEffect(type, label) {
+  const now = performance.now();
+  itemEffect = { type, label, startedAt: now, until: now + 850 };
+}
+
 function useSelectedItem() {
+  if (player.selectedItem === "ammoBox" && (player.inventory.ammoBox || 0) > 0) {
+    if (!player.owned?.blunderbuss) { showMessage("VOCÊ AINDA NÃO POSSUI O TRABUCO"); return; }
+    player.inventory.ammoBox--;
+    player.blunderbussAmmo = (player.blunderbussAmmo || 0) + CONFIG.blunderbussAmmoBoxSize;
+    weaponMode = "blunderbuss";
+    triggerItemEffect("ammo", "CAIXA DE BALAS");
+    playSound("ammoBox", { volume: 1.0 });
+    showMessage(`CAIXA DE BALAS USADA: +${CONFIG.blunderbussAmmoBoxSize} BALAS`);
+    refreshInventoryUI();
+    refreshSkillUI();
+    return;
+  }
   if (player.selectedItem === "fireBomb" && player.inventory.fireBomb) {
     playSound("bomba");
     createFireBombZone(performance.now());
@@ -830,6 +960,8 @@ function useSelectedItem() {
   }
   if (player.hp >= player.maxHp) { showMessage("VIDA JÁ ESTÁ CHEIA"); return; }
   player.hp = Math.min(player.maxHp, player.hp + player.maxHp * CONFIG.meladorHealPercent);
+  triggerItemEffect("heal", "MELADOR");
+  playSound("heal", { volume: 1.0 });
   player.inventory.melador--;
   showMessage("MELADOR USADO: +25% VIDA");
   refreshInventoryUI();
@@ -846,18 +978,42 @@ function buyMelador() {
 }
 
 function buyBlunderbuss() {
-  if (player.owned && player.owned.blunderbuss) {
-    weaponMode = "blunderbuss";
-    showMessage("TRABUCO EQUIPADO — SEGURE O BOTÃO DIREITO PARA MIRAR");
+  player.owned = player.owned || {};
+  if (player.owned.blunderbuss) {
+    showMessage("VOCÊ JÁ POSSUI O TRABUCO — COMPRE UMA CAIXA DE BALAS ABAIXO");
     refreshSkillUI();
     return;
   }
   if (player.coins < 100) { showMessage("MOEDAS INSUFICIENTES (100)"); return; }
   player.coins -= 100;
-  player.owned = player.owned || {};
   player.owned.blunderbuss = true;
+  player.blunderbussAmmo = CONFIG.blunderbussInitialAmmo;
   weaponMode = "blunderbuss";
-  showMessage("TRABUCO COMPRADO E EQUIPADO");
+  showMessage(`TRABUCO COMPRADO E EQUIPADO — ${CONFIG.blunderbussInitialAmmo} BALAS`);
+  refreshSkillUI();
+}
+
+function buyAmmoBox() {
+  if (!player.owned?.blunderbuss) { showMessage("COMPRE O TRABUCO PRIMEIRO"); return; }
+  if (player.coins < CONFIG.blunderbussAmmoBoxCost) { showMessage(`MOEDAS INSUFICIENTES (${CONFIG.blunderbussAmmoBoxCost})`); return; }
+  player.coins -= CONFIG.blunderbussAmmoBoxCost;
+  player.inventory.ammoBox = (player.inventory.ammoBox || 0) + 1;
+  player.selectedItem = "ammoBox";
+  showMessage("CAIXA DE BALAS ADICIONADA AO INVENTÁRIO — 30 BALAS");
+  refreshSkillUI();
+}
+
+
+function buyMagnet() {
+  const current = Math.max(0, Math.min(3, Number(player.magnetLevel) || 0));
+  if (current >= 3) { showMessage("IMÃ ANTIGO — NÍVEL MÁXIMO"); return; }
+  const next = current + 1;
+  const cost = CONFIG.magnetCosts[next];
+  if (player.coins < cost) { showMessage(`MOEDAS INSUFICIENTES (${cost})`); return; }
+  player.coins -= cost;
+  player.magnetLevel = next;
+  const radius = CONFIG.magnetRangesPixels[next];
+  showMessage(`IMÃ NÍVEL ${next} — MOEDAS ATRAÍDAS ATÉ ${radius}px`);
   refreshSkillUI();
 }
 
@@ -883,6 +1039,7 @@ function toggleLevelUp(show) {
 
 function chooseUpgrade(key) {
   if (player.upgrades[key] >= 5) { showMessage("LIMITE DESTE ATRIBUTO ATINGIDO"); return; }
+  if (player.xp < 100) return;
   player.upgrades[key]++;
   player.statMultipliers[key] *= 1.1;
   if (key === "health") {
@@ -897,9 +1054,15 @@ function chooseUpgrade(key) {
   playSound("xp");
   player.level++;
   if (typeof awardSwordSkillPoint === "function") awardSwordSkillPoint();
-  player.xp = 0;
+  player.xp -= 100;
   levelUpOpen = false;
   toggleLevelUp(false);
+  processAutomaticLevels();
+  if (player.xp >= 100 && hasAvailableLevelUpgrade()) {
+    levelUpOpen = true;
+    toggleLevelUp(true);
+    playSound("level");
+  }
   showMessage(`${key.toUpperCase()} +10%`);
 }
 
@@ -942,6 +1105,10 @@ document.getElementById("itemMelador").addEventListener("click", buyMelador);
 document.getElementById("itemFireBomb").addEventListener("click", buyFireBomb);
 const blunderbussButton = document.getElementById("itemBlunderbuss");
 if (blunderbussButton) blunderbussButton.addEventListener("click", buyBlunderbuss);
+const ammoBoxButton = document.getElementById("itemAmmoBox");
+if (ammoBoxButton) ammoBoxButton.addEventListener("click", buyAmmoBox);
+const magnetButton = document.getElementById("itemMagnet");
+if (magnetButton) magnetButton.addEventListener("click", buyMagnet);
 document.getElementById("closeInventoryButton").addEventListener("click", () => toggleInventory(false));
 document.querySelectorAll("[data-upgrade]").forEach(button => button.addEventListener("click", () => chooseUpgrade(button.getAttribute("data-upgrade"))));
 

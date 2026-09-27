@@ -26,7 +26,22 @@ const CONFIG = {
   sheathWidth: 1.1,
   sheathCooldown: 450,
   sheathDuration: 220,
+
+  // Trabuco / munição
+  blunderbussInitialAmmo: 15,
+  blunderbussAmmoBoxSize: 30,
+  blunderbussAmmoBoxCost: 50,
+  blunderbussCooldown: 850,
+  blunderbussCommonHits: 1,
+  blunderbussArcherHits: 2,
+  blunderbussBossHits: 5,
   sheathStunHitsRequired: 3,
+
+  // Casa segura (antiga área de pesca)
+  safeHouseMinX: 82,
+  safeHouseMaxX: 94,
+  safeHouseMinY: 80,
+  safeHouseMaxY: 94,
 
   staminaRegeneration: 24,
   staminaRegenDelay: 1000,
@@ -118,6 +133,8 @@ const CONFIG = {
 
   // Moedas
   coinPickupRange: 0.9,
+  magnetRangesPixels: [0, 50, 100, 200],
+  magnetCosts: [0, 50, 75, 100],
   coinsPerKill: 2,
   coinsPerStun: 5,
   coinsPerBoss: 50,

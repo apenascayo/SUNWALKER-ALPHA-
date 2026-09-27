@@ -1,6 +1,6 @@
 (() => {
-  // Sunwalker Alpha 1.8.5 — sistemas temporariamente desativados + menu/ranking/HUD.
-  const VERSION = "Alpha 1.8.5";
+  // Sunwalker Alpha 1.9 — sistemas temporariamente desativados + menu/ranking/HUD.
+  const VERSION = "Alpha 1.9";
   const RANKING_KEY = "sunwalker_highest_wave";
   const FISHING_KEYS = [
     "sunwalker_fishing_rod",
@@ -53,9 +53,15 @@
   disableFishing();
   setInterval(disableFishing, 500);
 
-  function coverFishingArea() {
+  function isPlayerInSafeHouse() {
+    if (typeof player === "undefined" || !player || typeof CONFIG === "undefined") return false;
+    return player.x >= CONFIG.safeHouseMinX && player.x <= CONFIG.safeHouseMaxX && player.y >= CONFIG.safeHouseMinY && player.y <= CONFIG.safeHouseMaxY;
+  }
+  window.isPlayerInSafeHouse = isPlayerInSafeHouse;
+
+  function drawSafeHouse() {
     if (typeof ctx === "undefined" || typeof Camera === "undefined" || typeof CONFIG === "undefined") return;
-    const minX = 82, maxX = 94, minY = 80, maxY = 94;
+    const minX = CONFIG.safeHouseMinX, maxX = CONFIG.safeHouseMaxX, minY = CONFIG.safeHouseMinY, maxY = CONFIG.safeHouseMaxY;
     ctx.save();
     for (let y = minY; y <= maxY; y++) {
       for (let x = minX; x <= maxX; x++) {
@@ -64,13 +70,27 @@
         const h = (Number(CONFIG.TILE_HEIGHT) || 36) / 2;
         ctx.beginPath();
         ctx.moveTo(s.x, s.y - h); ctx.lineTo(s.x + w, s.y); ctx.lineTo(s.x, s.y + h); ctx.lineTo(s.x - w, s.y); ctx.closePath();
-        ctx.fillStyle = ((x + y) & 1) ? "#98764d" : "#8d6d47";
+        ctx.fillStyle = ((x + y) & 1) ? "#477a43" : "#548e4d";
         ctx.fill();
-        ctx.strokeStyle = "rgba(65,48,31,.28)";
+        ctx.strokeStyle = "rgba(32,63,29,.38)";
         ctx.lineWidth = 1;
         ctx.stroke();
       }
     }
+    const center = Camera.worldToScreen((minX + maxX) / 2, (minY + maxY) / 2);
+    const w = (maxX - minX) * CONFIG.TILE_WIDTH * 0.62;
+    const h = (maxY - minY) * CONFIG.TILE_HEIGHT * 0.62;
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = "#b8df9d";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(center.x, center.y, w, h, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#eff7d8";
+    ctx.font = "bold 16px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("CASA SEGURA", center.x, center.y - h - 14);
+    ctx.font = "bold 11px Arial";
+    ctx.fillText("ZONA PROTEGIDA", center.x, center.y + h + 17);
     ctx.restore();
   }
 
@@ -196,12 +216,14 @@
     showMenu();
   }
 
+  // O terreno da casa segura deve fazer parte do cenário, antes de entidades/HUD do canvas,
+  // e nunca ser desenhado como uma camada por cima do jogador, NPCs ou minimapa.
+  window.drawSafeHouse = drawSafeHouse;
   const baseDrawGame = window.drawGame;
   if (typeof baseDrawGame === "function" && !window.__alpha185DrawHook) {
     window.__alpha185DrawHook = true;
     window.drawGame = function() {
       baseDrawGame();
-      coverFishingArea();
       tintSummonerBosses();
     };
   }

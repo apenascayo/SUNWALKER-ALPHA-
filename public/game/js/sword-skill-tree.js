@@ -105,7 +105,7 @@
     const hudButton = document.getElementById("swordTreeButton");
     if (points) points.textContent = `PONTOS: ${player.skillPoints}`;
     if (levelPoints) levelPoints.textContent = `PONTOS DE HABILIDADE: ${player.skillPoints}`;
-    if (hudButton) hudButton.textContent = `⚔ ÁRVORE DA ESPADA${player.skillPoints ? ` (${player.skillPoints})` : ""}`;
+    if (hudButton) { hudButton.textContent = "🌳"; hudButton.title = `ÁRVORE DE HABILIDADES${player.skillPoints ? ` — ${player.skillPoints} PONTO(S)` : ""}`; hudButton.setAttribute("aria-label", "Árvore de habilidades"); }
     renderBranch("fire");
     renderBranch("lightning");
     renderBranch("sheath");
@@ -120,10 +120,14 @@
     refresh();
   }
 
+  let treePreviousPaused = false;
+
   function openTree() {
     ensureState();
     const overlay = document.getElementById("swordTreeOverlay");
     if (!overlay) return;
+    treePreviousPaused = typeof paused !== "undefined" ? paused : false;
+    if (typeof paused !== "undefined") paused = true;
     overlay.classList.remove("hidden");
     refresh();
   }
@@ -131,6 +135,7 @@
   function closeTree() {
     const overlay = document.getElementById("swordTreeOverlay");
     if (overlay) overlay.classList.add("hidden");
+    if (typeof paused !== "undefined") paused = treePreviousPaused || levelUpOpen;
   }
 
   function setup() {
