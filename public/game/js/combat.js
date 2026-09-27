@@ -108,6 +108,21 @@ function fireBlunderbuss(now, direction) {
     target.hp = Math.max(0, target.maxHp * (1 - Math.min(target.blunderbussHits, requiredHits) / requiredHits));
     target.hitFlashUntil = now + 180;
     target.state = "hurt";
+    // Alvos que sobrevivem ao disparo sofrem recuo de exatamente 15px para trás.
+    if (target.blunderbussHits < requiredHits) {
+      const dx = target.x - player.x;
+      const dy = target.y - player.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const pixelsToWorld = (CONFIG.blunderbussRecoilPixels || 15) / (CONFIG.TILE_WIDTH / 2);
+      const duration = CONFIG.blunderbussRecoilDuration || 150;
+      const speed = pixelsToWorld / (duration / 1000);
+      target.knockbackX = (dx / dist) * speed;
+      target.knockbackY = (dy / dist) * speed;
+      target.staggerUntil = now + duration;
+    } else {
+      target.knockbackX = 0;
+      target.knockbackY = 0;
+    }
     target.hurtUntil = now + 180;
     target.attackPhase = null;
     hitSparks.push({ x: target.x, y: target.y, start: now, until: now + 360, type: "blunderbuss" });
@@ -151,7 +166,31 @@ function playerAttackHit(now) {
         enemy.attackPhase = null;
         spawnHitSpark(enemy.x, enemy.y, now, "sword");
         const fireStage = typeof getSwordElementStage === "function" ? getSwordElementStage("fire") : 0;
-        if (fireStage >= 2 && !enemy.isDead()) {
+        const lightningStage = typeof getSwordElementStage === "function" ? getSwordElementStage("lightning") : 0;
+        // Fogo e Raio são caminhos exclusivos. O efeito é aplicado aqui,
+        // diretamente no hit da espada, para não depender de sobrescritas em window.damageEnemy.
+        if (lightningStage >= 2 && fireStage === 0 && !enemy.isDead()) {
+          const lightningDuration = 3000;
+          enemy.lightningUntil = now + lightningDuration;
+          enemy.lightningNextTick = now + 1000;
+          enemy.lightningSourceAttack = attack.id;
+          enemy.swordElement = "lightning";
+          enemy.swordElementStage = lightningStage;
+          if (lightningStage >= 5) {
+            const radius = typeof getSwordSkillAreaRadius === "function" ? getSwordSkillAreaRadius("lightning") : 1.9;
+            for (const other of enemies) {
+              if (other === enemy || other.isDead()) continue;
+              if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= radius) {
+                other.lightningUntil = now + lightningDuration;
+                other.lightningNextTick = now + 1000;
+                other.lightningSourceAttack = attack.id;
+                other.swordElement = "lightning";
+                other.swordElementStage = lightningStage;
+              }
+            }
+          }
+          showMessage(`CORTE DE RAIO -${damage}`);
+        } else if (fireStage >= 2 && lightningStage === 0 && !enemy.isDead()) {
           enemy.burnUntil = now + (CONFIG.fireBurnDuration + Math.max(0, fireStage - 2) * 500);
           enemy.burnNextTick = now + 1000;
           enemy.swordElement = "fire";

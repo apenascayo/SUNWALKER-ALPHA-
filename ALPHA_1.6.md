@@ -2,7 +2,7 @@
 
 ## Correções de Configurações
 
-Esta versão corrige o sistema de configurações da Alpha 1.5.
+Esta versão corrige o sistema de configurações da Alpha 1.6.
 
 ### Alterações
 - Corrigida a interação das barras de configuração com mouse e toque.

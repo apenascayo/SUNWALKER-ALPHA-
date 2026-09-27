@@ -1,6 +1,6 @@
 (() => {
-  // Alpha 1.9: efeitos sonoros, musica aleatoria, contador de onda, modo deus e ambientacao.
-  document.title = "Sunwalker — Alpha 1.9";
+  // Alpha 2.0: efeitos sonoros, musica aleatoria, contador de onda, modo deus e ambientacao.
+  document.title = "Sunwalker — Alpha 2.0";
   const EFFECTS = { shock: "assets/sfx/danoeletrico.mp3", bossSword: "assets/sfx/sowrdinimigo.mp3", arrow: "assets/sfx/arrow.mp3" };
   const SHOCK_DURATION = 9000;
   const GOD_KEY = "sunwalker_god_mode";
@@ -93,17 +93,14 @@
     } catch (_) {}
   }
 
-  // Elemento antigo de identificação da faixa: permanece oculto.
-  function hideMusicLabel() {
+  // Alpha 2.0: o player de música não é mais ocultado.
+  function keepMusicModalVisible() {
     const el = document.getElementById("sunwalkerNowPlaying");
-    if (!el) return;
-    el.hidden = true;
-    el.style.display = "none";
-    el.textContent = "";
-    el.onclick = null;
+    if (el) { el.hidden = false; el.style.display = "block"; }
   }
-  setInterval(hideMusicLabel, 250);
-  hideMusicLabel();
+  setInterval(keepMusicModalVisible, 250);
+  keepMusicModalVisible();
+
 
   function createSkillStatus() {
     if (document.getElementById("alpha18SkillStatus")) return;

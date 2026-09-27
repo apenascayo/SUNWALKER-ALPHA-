@@ -343,6 +343,8 @@ function createEnemies() {
 }
 
 function resetGame() {
+  // Alpha 2.0: ao morrer/reiniciar, a trilha volta a tocar em uma nova ordem aleatória.
+  if (typeof window.sunwalkerRestartMusicRandom === "function") window.sunwalkerRestartMusicRandom();
   player = new Player();
   waveCounter = 1;
   createEnemies();
@@ -533,7 +535,8 @@ function updateEnemies(dt, now) {
   updateBossDangerZones(now);
   const inSafeHouse = typeof window.isPlayerInSafeHouse === "function" && window.isPlayerInSafeHouse();
   for (const enemy of enemies) {
-    enemy.damageNumbers = enemy.damageNumbers.filter(d => d.until > now);
+    try {
+    enemy.damageNumbers = Array.isArray(enemy.damageNumbers) ? enemy.damageNumbers.filter(d => d.until > now) : [];
     if (enemy.isDead()) continue;
     if (enemy.burnUntil > now) {
       if (now >= enemy.burnNextTick) {
@@ -585,8 +588,22 @@ function updateEnemies(dt, now) {
       enemy.y += dirY * speed * dt;
       enemy.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
     }
+    } catch (error) {
+      // Um NPC corrompido não pode pausar o jogador nem o restante da onda.
+      console.warn("[game] NPC recuperado após erro de atualização", error);
+      if (enemy && !enemy.isDead()) {
+        enemy.attackPhase = null;
+        enemy.hurtUntil = 0;
+        enemy.stunnedUntil = 0;
+        enemy.knockbackX = 0;
+        enemy.knockbackY = 0;
+        enemy.state = "chasing";
+        if (!Number.isFinite(enemy.x)) enemy.x = Number.isFinite(enemy.spawnX) ? enemy.spawnX : 50;
+        if (!Number.isFinite(enemy.y)) enemy.y = Number.isFinite(enemy.spawnY) ? enemy.spawnY : 50;
+      }
+    }
   }
-  updateFireBombZones(now);
+  try { updateFireBombZones(now); } catch (error) { console.warn("[game] area de bomba recuperada após erro", error); }
 }
 
 function createFireBombZone(now) {
@@ -595,10 +612,9 @@ function createFireBombZone(now) {
   const distance = CONFIG.fireBombOffsetPixels / pixelsPerWorldUnit;
   const impactX = player.x + direction.x * distance;
   const impactY = player.y + direction.y * distance;
-  const halfLength = (CONFIG.fireBombHitboxLengthPixels || 150) / pixelsPerWorldUnit / 2;
-  const halfWidth = (CONFIG.fireBombHitboxWidthPixels || 50) / pixelsPerWorldUnit / 2;
-  fireBombZones.push({ x: impactX, y: impactY, dirX: direction.x, dirY: direction.y, halfLength, halfWidth, start: now, end: now + CONFIG.fireBombDuration, nextTicks: {} });
-  fireBombImpacts.push({ x: impactX, y: impactY, start: now, end: now + 450, ring: 0 });
+  const radius = (CONFIG.fireBombRadiusPixels || 75) / pixelsPerWorldUnit;
+  fireBombZones.push({ x: impactX, y: impactY, radius, start: now, end: now + CONFIG.fireBombDuration, nextTicks: {} });
+  fireBombImpacts.push({ x: impactX, y: impactY, start: now, end: now + (CONFIG.fireBombImpactDurationMs || 450), ring: 0 });
 }
 
 function updateFireBombZones(now) {
@@ -609,9 +625,8 @@ function updateFireBombZones(now) {
       if (enemy.isDead()) continue;
       const dx = enemy.x - zone.x;
       const dy = enemy.y - zone.y;
-      const localX = dx * zone.dirX + dy * zone.dirY;
-      const localY = dx * (-zone.dirY) + dy * zone.dirX;
-      const inside = (localX * localX) / (zone.halfLength * zone.halfLength) + (localY * localY) / (zone.halfWidth * zone.halfWidth) <= 1;
+      const radius = zone.radius || ((CONFIG.fireBombRadiusPixels || 75) / (CONFIG.TILE_WIDTH / 2));
+      const inside = (dx * dx + dy * dy) <= radius * radius;
       if (!inside) continue;
       const next = zone.nextTicks[enemy.id] || zone.start;
       if (now < next) continue;
@@ -698,6 +713,15 @@ function updateHUD() {
 
 function update(dt, now) {
   if (Input.consume("f3")) setDebug(!CONFIG.debug);
+
+  // Alpha 2.0: o relógio das ondas é independente dos modais.
+  // Abrir skills, inventário, mercador ou configurações não congela a contagem.
+  // A onda pode nascer enquanto um modal estiver aberto; a jogabilidade continua
+  // pausada até o modal ser fechado.
+  if (gameStarted && now >= nextRespawnAt) {
+    respawnWave(now);
+    nextRespawnAt = now + getWaveInterval(waveCounter);
+  }
   if (Input.consume("escape")) {
     if (merchantOpen) toggleMerchant(false);
     else if (!settingsOpen) togglePause();
@@ -717,10 +741,6 @@ function update(dt, now) {
   updatePlayerCombat(now, dt);
   updateEnemies(dt, now);
   updateCoins();
-  if (now >= nextRespawnAt) {
-    respawnWave(now);
-    nextRespawnAt = now + getWaveInterval(waveCounter);
-  }
   hitSparks = hitSparks.filter(s => s.until > now);
   Camera.update(dt);
   updateHUD();
@@ -779,24 +799,33 @@ function recoverStalledActors(now) {
 }
 
 function gameLoop(timestamp) {
+  const dt = calculateDeltaTime(timestamp);
   try {
-    const dt = calculateDeltaTime(timestamp);
     if (!runtimeError) {
       recoverStalledActors(timestamp);
-      update(dt, timestamp);
+      try { update(dt, timestamp); } catch (error) {
+        console.warn("[game] frame de atualização recuperado", error);
+        recoverStalledActors(timestamp);
+        lastTime = timestamp;
+      }
+      try { drawGame(); } catch (error) {
+        console.warn("[game] frame de renderização recuperado", error);
+        lastTime = timestamp;
+      }
     }
-    if (!runtimeError) drawGame();
   } catch (error) {
-    showRuntimeError(error);
-    console.error("Game loop error", error);
+    // Alpha 2.0: um erro isolado de frame não pode deixar jogador/NPCs congelados.
+    console.warn("[game] recuperação global do frame", error);
+    try { recoverStalledActors(timestamp); } catch (_) {}
+    lastTime = timestamp;
   } finally {
-    try { Input.endFrame(); } catch (error) { showRuntimeError(error); }
+    try { Input.endFrame(); } catch (error) { console.warn("[game] Input recuperado", error); }
     requestAnimationFrame(gameLoop);
   }
 }
 
 const merchantSprite = new Image();
-merchantSprite.src = "assets/merchant.jpg";
+merchantSprite.src = "assets/mercador.png";
 
 const SOUNDS = {
   sword: "assets/sword.mp3",
@@ -968,9 +997,14 @@ function useSelectedItem() {
   refreshSkillUI();
 }
 
+function playPurchaseSound() {
+  try { playSound("coins", { volume: 1.0 }); } catch (_) {}
+}
+
 function buyMelador() {
   if (player.coins < CONFIG.meladorCost) { showMessage(`MOEDAS INSUFICIENTES (${CONFIG.meladorCost})`); return; }
   player.coins -= CONFIG.meladorCost;
+  playPurchaseSound();
   player.inventory.melador++;
   player.selectedItem = "melador";
   showMessage("MELADOR COMPRADO");
@@ -986,6 +1020,7 @@ function buyBlunderbuss() {
   }
   if (player.coins < 100) { showMessage("MOEDAS INSUFICIENTES (100)"); return; }
   player.coins -= 100;
+  playPurchaseSound();
   player.owned.blunderbuss = true;
   player.blunderbussAmmo = CONFIG.blunderbussInitialAmmo;
   weaponMode = "blunderbuss";
@@ -997,6 +1032,7 @@ function buyAmmoBox() {
   if (!player.owned?.blunderbuss) { showMessage("COMPRE O TRABUCO PRIMEIRO"); return; }
   if (player.coins < CONFIG.blunderbussAmmoBoxCost) { showMessage(`MOEDAS INSUFICIENTES (${CONFIG.blunderbussAmmoBoxCost})`); return; }
   player.coins -= CONFIG.blunderbussAmmoBoxCost;
+  playPurchaseSound();
   player.inventory.ammoBox = (player.inventory.ammoBox || 0) + 1;
   player.selectedItem = "ammoBox";
   showMessage("CAIXA DE BALAS ADICIONADA AO INVENTÁRIO — 30 BALAS");
@@ -1011,6 +1047,7 @@ function buyMagnet() {
   const cost = CONFIG.magnetCosts[next];
   if (player.coins < cost) { showMessage(`MOEDAS INSUFICIENTES (${cost})`); return; }
   player.coins -= cost;
+  playPurchaseSound();
   player.magnetLevel = next;
   const radius = CONFIG.magnetRangesPixels[next];
   showMessage(`IMÃ NÍVEL ${next} — MOEDAS ATRAÍDAS ATÉ ${radius}px`);
@@ -1020,10 +1057,88 @@ function buyMagnet() {
 function buyFireBomb() {
   if (player.coins < CONFIG.fireBombCost) { showMessage(`MOEDAS INSUFICIENTES (${CONFIG.fireBombCost})`); return; }
   player.coins -= CONFIG.fireBombCost;
+  playPurchaseSound();
   player.inventory.fireBomb++;
   player.selectedItem = "fireBomb";
   showMessage("BOMBA DE FOGO COMPRADA");
   refreshSkillUI();
+}
+
+const CLOTHING_CATALOG = {
+  hats: {
+    straw: { label: "CHAPÉU DE PALHA", price: 50 },
+    kasa: { label: "KASA DE PALHA", price: 75 },
+    warrior: { label: "CHAPÉU DE GUERREIRO", price: 100 },
+    samurai: { label: "CHAPÉU SAMURAI", price: 125 },
+    ronin: { label: "CHAPÉU RONIN", price: 150 }
+  },
+  shirts: {
+    black: { label: "CAMISA PRETA", price: 0, color: "#050505" },
+    red: { label: "CAMISA VERMELHA", price: 30, color: "#7d2f2f" },
+    green: { label: "CAMISA VERDE", price: 30, color: "#315b3b" },
+    blue: { label: "CAMISA AZUL", price: 30, color: "#2e4f78" },
+    beige: { label: "CAMISA BEGE", price: 30, color: "#9a805f" }
+  }
+};
+
+function buyClothing(type, key) {
+  const catalog = CLOTHING_CATALOG[type] || {};
+  const item = catalog[key];
+  if (!item || !player) return;
+  if (type === "shirts" && key === "black") {
+    player.clothing.shirt = key;
+    refreshClothingUI();
+    return;
+  }
+  const owned = type === "hats" ? player.ownedClothing.hats : player.ownedClothing.shirts;
+  if (owned.includes(key)) {
+    player.clothing[type === "hats" ? "hat" : "shirt"] = key;
+    refreshClothingUI();
+    showMessage(`${item.label} EQUIPADO`);
+    return;
+  }
+  if (player.coins < item.price) { showMessage(`MOEDAS INSUFICIENTES (${item.price})`); return; }
+  player.coins -= item.price;
+  playPurchaseSound();
+  owned.push(key);
+  player.clothing[type === "hats" ? "hat" : "shirt"] = key;
+  showMessage(`${item.label} COMPRADO E EQUIPADO`);
+  refreshClothingUI();
+  refreshSkillUI();
+}
+
+function refreshClothingUI() {
+  const root = document.getElementById("merchantClothingPanel");
+  if (!root || !player) return;
+  root.querySelectorAll("[data-clothing-type][data-clothing-key]").forEach(card => {
+    const type = card.dataset.clothingType;
+    const key = card.dataset.clothingKey;
+    const equipped = player.clothing[type === "hats" ? "hat" : "shirt"] === key;
+    const owned = (type === "hats" ? player.ownedClothing.hats : player.ownedClothing.shirts).includes(key) || (type === "shirts" && key === "black");
+    card.classList.toggle("active", equipped);
+    const state = card.querySelector(".skill-state");
+    if (state) state.textContent = equipped ? "EQUIPADO" : owned ? "EQUIPAR" : `COMPRAR — ${CLOTHING_CATALOG[type][key].price} MOEDAS`;
+  });
+}
+
+function toggleMerchantTab(tab) {
+  document.querySelectorAll(".merchant-tab-panel").forEach(el => el.classList.toggle("hidden", el.id !== `merchant${tab}Panel`));
+  document.querySelectorAll(".merchant-tab-button").forEach(el => el.classList.toggle("active", el.dataset.tab === tab));
+  if (tab === "Clothing") refreshClothingUI();
+}
+
+function setupClothingUI() {
+  document.querySelectorAll(".merchant-tab-button").forEach(btn => {
+    if (btn.dataset.bound === "true") return;
+    btn.dataset.bound = "true";
+    btn.addEventListener("click", () => toggleMerchantTab(btn.dataset.tab));
+  });
+  document.querySelectorAll("[data-clothing-type][data-clothing-key]").forEach(card => {
+    if (card.dataset.bound === "true") return;
+    card.dataset.bound = "true";
+    card.addEventListener("click", () => buyClothing(card.dataset.clothingType, card.dataset.clothingKey));
+  });
+  refreshClothingUI();
 }
 
 function toggleLevelUp(show) {
@@ -1089,7 +1204,7 @@ function toggleMerchant(show) {
   merchantOpen = typeof show === "boolean" ? show : !merchantOpen;
   const overlay = document.getElementById("merchantOverlay");
   if (overlay) overlay.classList.toggle("hidden", !merchantOpen);
-  if (merchantOpen) { playSound("merchant"); refreshSkillUI(); }
+  if (merchantOpen) { playSound("merchant"); refreshSkillUI(); setupClothingUI(); toggleMerchantTab("Items"); }
 }
 
 document.getElementById("restartButton").addEventListener("click", resetGame);
@@ -1127,6 +1242,7 @@ if (musicVolumeSlider) {
   musicVolumeSlider.addEventListener("change", e => setMusicVolume(e.target.value));
 }
 
+setupClothingUI();
 Input.init();
 CONFIG.attackControlMode = getAttackControlMode();
 setDebug(getDebug());

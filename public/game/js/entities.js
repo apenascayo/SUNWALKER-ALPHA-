@@ -42,6 +42,8 @@ class Player {
     this.fireBurnUntil = 0;
     this.fireBurnNextTick = 0;
     this.burning = false;
+    this.clothing = { hat: "none", shirt: "black" };
+    this.ownedClothing = { hats: [], shirts: ["black"] };
   }
 
   isDead() { return this.hp <= 0; }

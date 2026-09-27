@@ -1,6 +1,6 @@
 (() => {
-  // Sunwalker Alpha 1.9 — sistemas temporariamente desativados + menu/ranking/HUD.
-  const VERSION = "Alpha 1.9";
+  // Sunwalker Alpha 2.0 — sistemas temporariamente desativados + menu/ranking/HUD.
+  const VERSION = "Alpha 2.0";
   const RANKING_KEY = "sunwalker_highest_wave";
   const FISHING_KEYS = [
     "sunwalker_fishing_rod",
@@ -36,7 +36,8 @@
     } catch (_) {}
   }
   disableReputation();
-  setInterval(disableReputation, 500);
+  // O sistema de reputação já está desativado; uma aplicação inicial é suficiente.
+
 
   function disableFishing() {
     FISHING_KEYS.forEach(key => localStorage.removeItem(key));
@@ -51,15 +52,18 @@
     } catch (_) {}
   }
   disableFishing();
-  setInterval(disableFishing, 500);
+  // Pesca permanece desativada nesta versão; não é necessário revarrer o DOM continuamente.
+
 
   function isPlayerInSafeHouse() {
+    return false; // CASA SEGURA DESATIVADA TEMPORARIAMENTE
     if (typeof player === "undefined" || !player || typeof CONFIG === "undefined") return false;
     return player.x >= CONFIG.safeHouseMinX && player.x <= CONFIG.safeHouseMaxX && player.y >= CONFIG.safeHouseMinY && player.y <= CONFIG.safeHouseMaxY;
   }
   window.isPlayerInSafeHouse = isPlayerInSafeHouse;
 
   function drawSafeHouse() {
+    return; // CASA SEGURA DESATIVADA TEMPORARIAMENTE
     if (typeof ctx === "undefined" || typeof Camera === "undefined" || typeof CONFIG === "undefined") return;
     const minX = CONFIG.safeHouseMinX, maxX = CONFIG.safeHouseMaxX, minY = CONFIG.safeHouseMinY, maxY = CONFIG.safeHouseMaxY;
     ctx.save();
@@ -112,18 +116,15 @@
     }
   }
 
+  // Alpha 2.0: o modal de música permanece visível e acima do contador de onda.
   function hideMusicNames() {
-    ["sunwalkerNowPlaying", "musicNowPlaying", "musicStatus"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.hidden = true;
-        el.style.display = "none";
-        el.textContent = "";
-      }
-    });
+    const el = document.getElementById("sunwalkerNowPlaying");
+    if (el) { el.hidden = false; el.style.display = "block"; }
   }
   hideMusicNames();
-  setInterval(hideMusicNames, 300);
+  setTimeout(hideMusicNames, 0);
+
+
 
   // HABILIDADES ATIVAS: somente TAB, no lado oposto ao mapa (canto inferior direito).
   let skillVisible = false;
@@ -146,7 +147,8 @@
     skillVisible = !skillVisible;
     refreshSkills();
   }, true);
-  setInterval(refreshSkills, 300);
+  // A HUD de habilidades é atualizada quando aberta/fechada, evitando trabalho periódico desnecessário.
+
   refreshSkills();
 
   function readCurrentWave() {

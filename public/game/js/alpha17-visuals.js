@@ -15,6 +15,7 @@
   }
 
   function drawSafeHouseMinimapMarker() {
+    return; // CASA SEGURA DESATIVADA TEMPORARIAMENTE
     if (typeof ctx === "undefined" || typeof Camera === "undefined" || typeof getViewportSize !== "function") return;
     const size = 170, pad = 16;
     const viewport = getViewportSize();

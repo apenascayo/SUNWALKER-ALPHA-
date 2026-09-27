@@ -55,7 +55,9 @@
     ensureState();
     const fire = player.swordSkillTree.fire || 0;
     const lightning = player.swordSkillTree.lightning || 0;
-    return 1 + (stageDamageMultiplier(fire) - 1) + (stageDamageMultiplier(lightning) - 1);
+    // Fogo e Raio são caminhos exclusivos: somente o caminho escolhido conta.
+    const active = fire > 0 ? fire : lightning;
+    return stageDamageMultiplier(active);
   };
   window.getSwordElementStage = function(branch) {
     return window.getSwordSkillStage(branch);
@@ -87,12 +89,16 @@
     TREE[branch].nodes.forEach((node, index) => {
       const stage = index + 1;
       const unlocked = level >= stage;
-      const available = level === stage - 1 && player.skillPoints > 0;
+      const otherBranch = branch === "fire" ? "lightning" : branch === "lightning" ? "fire" : null;
+      const branchBlocked = !!otherBranch && (player.swordSkillTree[otherBranch] || 0) > 0;
+      const available = !branchBlocked && level === stage - 1 && player.skillPoints > 0;
       const el = document.createElement("button");
       el.type = "button";
       el.className = "sword-skill-node" + (unlocked ? " unlocked" : " locked") + (level === stage ? " current" : "");
       el.disabled = !available;
-      el.innerHTML = `<span class="node-stage">ESTÁGIO ${node[0]}</span><h3>${TREE[branch].icon} ${node[1]}</h3><p>${node[2]}</p><span class="node-status">${unlocked ? "DESBLOQUEADO" : available ? "GASTAR 1 PONTO" : `REQUER ESTÁGIO ${stage - 1}`}</span>`;
+      const status = unlocked ? "DESBLOQUEADO" : branchBlocked ? `BLOQUEADO PELO CAMINHO DO ${otherBranch === "fire" ? "FOGO" : "RAIO"}` : available ? "GASTAR 1 PONTO" : `REQUER ESTÁGIO ${stage - 1}`;
+      el.innerHTML = `<span class="node-stage">ESTÁGIO ${node[0]}</span><h3>${TREE[branch].icon} ${node[1]}</h3><p>${node[2]}</p><span class="node-status">${status}</span>`;
+      if (branchBlocked) el.classList.add("branch-blocked");
       if (available) el.addEventListener("click", () => unlock(branch, stage));
       target.appendChild(el);
     });
@@ -113,6 +119,13 @@
 
   function unlock(branch, stage) {
     ensureState();
+    if ((branch === "fire" || branch === "lightning")) {
+      const other = branch === "fire" ? "lightning" : "fire";
+      if ((player.swordSkillTree[other] || 0) > 0) {
+        showMessage(`CAMINHO DO ${other === "fire" ? "FOGO" : "RAIO"} JÁ ESCOLHIDO — ESTE CAMINHO ESTÁ BLOQUEADO`);
+        return;
+      }
+    }
     if (player.skillPoints <= 0 || player.swordSkillTree[branch] !== stage - 1) return;
     player.skillPoints--;
     player.swordSkillTree[branch] = stage;
@@ -135,6 +148,16 @@
   function closeTree() {
     const overlay = document.getElementById("swordTreeOverlay");
     if (overlay) overlay.classList.add("hidden");
+
+    // Alpha 2.0: quando a árvore foi aberta a partir do modal de nível e o
+    // ponto já foi gasto, não deixamos o modal de nível invisível manter o jogo pausado.
+    if (typeof levelUpOpen !== "undefined" && levelUpOpen && player.skillPoints <= 0) {
+      levelUpOpen = false;
+      if (typeof toggleLevelUp === "function") toggleLevelUp(false);
+      if (typeof paused !== "undefined") paused = treePreviousPaused;
+      return;
+    }
+
     if (typeof paused !== "undefined") paused = treePreviousPaused || levelUpOpen;
   }
 

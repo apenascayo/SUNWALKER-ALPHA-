@@ -1,5 +1,5 @@
 (() => {
-  // Correções e extensões finais da Alpha 1.9.
+  // Correções e extensões finais da Alpha 2.0.
   // Este arquivo trabalha sobre os sistemas base, sem substituir o DASH original.
 
   const FISHING_AREA = { minX: 82, maxX: 94, minY: 80, maxY: 94 };
@@ -43,8 +43,7 @@
   window.addEventListener("playing", showNowPlaying, true);
   setInterval(showNowPlaying, 700);
 
-  // O contador da onda mantém o layout original do HUD.
-  // Não altera position/z-index para não disputar espaço com o aviso de música.
+  // Alpha 2.0: o modal de música permanece acima do contador de onda (z-index 10001 vs 10000).
 
   window.addEventListener("keydown", event => {
     if (event.key.toLowerCase() !== "r" || event.repeat) return;
@@ -92,59 +91,6 @@
     ctx.restore();
   }
 
-  function terrainNoise(x, y) {
-    const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-    return n - Math.floor(n);
-  }
-
-  function drawDryGround() {
-    const rect = canvas.getBoundingClientRect();
-    const viewportWidth = rect.width || canvas.clientWidth || window.innerWidth;
-    const viewportHeight = rect.height || canvas.clientHeight || window.innerHeight;
-    const radius = Math.ceil(Math.max(viewportWidth / tileW(), viewportHeight / tileH()) * 1.3);
-    const minX = Math.max(0, Math.floor(Camera.x - radius));
-    const maxX = Math.min(CONFIG.MAP_WIDTH - 1, Math.ceil(Camera.x + radius));
-    const minY = Math.max(0, Math.floor(Camera.y - radius));
-    const maxY = Math.min(CONFIG.MAP_HEIGHT - 1, Math.ceil(Camera.y + radius));
-    const tiles = [];
-    for (let y = minY; y <= maxY; y++) {
-      for (let x = minX; x <= maxX; x++) {
-        const s = Camera.worldToScreen(x, y);
-        if (s.x < -CONFIG.TILE_WIDTH || s.x > viewportWidth + CONFIG.TILE_WIDTH || s.y < -CONFIG.TILE_HEIGHT || s.y > viewportHeight + CONFIG.TILE_HEIGHT) continue;
-        tiles.push({ x, y, s });
-      }
-    }
-    tiles.sort((a,b) => (a.x + a.y) - (b.x + b.y));
-    for (const t of tiles) {
-      const w = tileW() / 2;
-      const h = tileH() / 2;
-      ctx.beginPath();
-      ctx.moveTo(t.s.x, t.s.y - h); ctx.lineTo(t.s.x + w, t.s.y); ctx.lineTo(t.s.x, t.s.y + h); ctx.lineTo(t.s.x - w, t.s.y); ctx.closePath();
-      const n = terrainNoise(t.x, t.y);
-      ctx.fillStyle = n > .72 ? "#a78357" : (n > .35 ? "#98764d" : "#8d6d47");
-      ctx.fill();
-      ctx.strokeStyle = "rgba(65,48,31,.28)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      if (n > .55) {
-        ctx.strokeStyle = "rgba(70,50,31,.24)";
-        ctx.beginPath();
-        ctx.moveTo(t.s.x - w * .35, t.s.y + h * .05); ctx.lineTo(t.s.x - w * .1, t.s.y - h * .08); ctx.lineTo(t.s.x + w * .15, t.s.y + h * .03); ctx.stroke();
-      }
-      if (n < 0.075) {
-        const px = t.s.x + (terrainNoise(t.x + 4, t.y + 8) - .5) * w * .8;
-        const py = t.s.y - 2;
-        ctx.save();
-        ctx.strokeStyle = "rgba(55,48,35,.78)"; ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(px, py + 6); ctx.lineTo(px - 4, py - 7);
-        ctx.moveTo(px, py + 5); ctx.lineTo(px + 5, py - 4);
-        ctx.moveTo(px, py + 2); ctx.lineTo(px + 1, py - 9);
-        ctx.stroke(); ctx.restore();
-      }
-    }
-  }
-
   const baseDrawGame = window.drawGame;
   window.drawGame = function() {
     baseDrawGame();
@@ -154,7 +100,6 @@
     drawDashEffect();
   };
 
-  window.drawMap = drawDryGround;
 
   function drawDashEffect() {
     if (!dashFx) return;
@@ -183,7 +128,7 @@
     }
   };
 
-  // Alpha 1.9: o invocador passa a aparecer a partir da Onda 4.
+  // Alpha 2.0: o invocador passa a aparecer a partir da Onda 4.
   function ensureWave4Bosses() {
     if (typeof enemies === "undefined" || typeof waveCounter === "undefined" || typeof Enemy !== "function") return;
     if (waveCounter < 4) return;
@@ -474,5 +419,5 @@
     player.skills.allySheath = false;
   }, 400);
 
-  console.info("[Sunwalker] Alpha 1.9: invocador na Onda 4, HUD restaurado e musica aleatoria corrigida.");
+  console.info("[Sunwalker] Alpha 2.0: invocador na Onda 4, HUD restaurado e musica aleatoria corrigida.");
 })();

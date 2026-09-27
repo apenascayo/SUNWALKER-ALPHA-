@@ -35,6 +35,8 @@ const CONFIG = {
   blunderbussCommonHits: 1,
   blunderbussArcherHits: 2,
   blunderbussBossHits: 5,
+  blunderbussRecoilPixels: 15,
+  blunderbussRecoilDuration: 150,
   sheathStunHitsRequired: 3,
 
   // Casa segura (antiga área de pesca)
@@ -142,10 +144,10 @@ const CONFIG = {
   meladorHealPercent: 0.25,
   fireBombCost: 75,
   fireBombDuration: 5000,
-  fireBombHitboxWidthPixels: 50,
-  fireBombHitboxLengthPixels: 150,
+  fireBombHitboxWidthPixels: 75,
+  fireBombHitboxLengthPixels: 75,
   fireBombImpactDurationMs: 450,
-  fireBombRadiusPixels: 10,
+  fireBombRadiusPixels: 94,
   fireBombOffsetPixels: 15,
   fireBombDamagePercentPerSecond: 0.15,
   skillFireCost: 30,

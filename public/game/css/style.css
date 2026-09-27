@@ -41,8 +41,8 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
 }
 .hud-panel, .controls { background: rgba(10,10,12,.84); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 8px 24px rgba(0,0,0,.35); backdrop-filter: blur(4px); }
 .hud-panel { min-width: 260px; padding: 12px; border-radius: 8px; }
-.wave-status { min-width: 150px; text-align: center; border-color: rgba(232,180,59,.55); color: #ffe5a1; }
-.wave-status { position: absolute; left: 50%; transform: translateX(-50%); top: 16px; }
+.wave-status { min-width: 150px; text-align: center; border-color: rgba(232,180,59,.55); color: #ffe5a1; z-index: 10000; }
+.wave-status { position: absolute; left: 50%; transform: translateX(-50%); top: 52px; }
 .wave-title { font-size: 11px; letter-spacing: 1px; font-weight: 800; }
 .wave-number { margin-top: 5px; font-size: 20px; font-weight: 900; color: #fff; }
 .wave-countdown { margin-top: 4px; font-size: 13px; }
@@ -105,7 +105,7 @@ body.debug-mode .debug-only { display: block; }
 .top-actions button, .modal button { cursor:pointer; padding:10px 14px; border:1px solid #777; background:#202126; color:#fff; font-weight:700; border-radius:5px; }
 .top-actions button:hover, .modal button:hover { background:#333; }
 .reputation > div { background:#8d63c7; }
-.overlay { position:absolute; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.68); z-index:20; pointer-events:auto; }
+.overlay { position:absolute; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.68); z-index:20000; pointer-events:auto; }
 .overlay.hidden { display:none; }
 .modal { min-width:330px; padding:30px; text-align:center; background:rgba(18,18,20,.98); border:2px solid #888; box-shadow:0 18px 60px #000; pointer-events:auto; }
 .modal h1 { margin:0 0 24px; letter-spacing:2px; }
@@ -168,7 +168,7 @@ body.debug-mode .debug-only { display: block; }
 @media (max-width: 700px) {
   #hud { padding: 8px; }
   .hud-panel { min-width: 170px; padding: 8px; }
-  .wave-status { top: 8px; min-width: 130px; }
+  .wave-status { top: 48px; min-width: 130px; }
   .weapon-status { right: 8px; top: 108px; min-width: 180px; padding: 8px 10px; }
   .weapon-icon { width: 32px; height: 32px; font-size: 20px; }
   .coin-counter { top: 8px; right: 8px; }
@@ -196,3 +196,16 @@ body.debug-mode .debug-only { display: block; }
 .level-attribute-note{margin:12px 0 7px!important;color:#9c9ca4!important;font-size:11px!important}
 #openSwordTreeFromLevel{margin-bottom:8px}
 @media(max-width:700px){.sword-branches{grid-template-columns:1fr}.skill-nodes{grid-template-columns:repeat(5,minmax(75px,1fr));overflow-x:auto}.sword-tree-head{flex-direction:column;align-items:flex-start}}
+
+
+/* Alpha 2.0 — mercador e roupas */
+.merchant-tabs{display:flex;gap:8px;margin:0 0 14px;border-bottom:1px solid #3e3e44;padding-bottom:8px}
+.merchant-tab-button{flex:1;padding:10px 12px;border:1px solid #555;background:#222329;color:#ddd;font-weight:800;cursor:pointer;border-radius:6px}
+.merchant-tab-button.active{border-color:#e8b43b;color:#f5d77b;background:#3a3321;box-shadow:0 0 0 1px #e8b43b inset}
+.merchant-tab-panel.hidden{display:none}
+.clothing-section-title{margin:10px 0 8px;color:#e8b43b;font-size:12px;font-weight:900;letter-spacing:1px}
+.clothing-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.clothing-card{margin:0;min-height:90px}
+@media (max-width:700px){.clothing-grid{grid-template-columns:1fr}}
+
+.sword-skill-node.branch-blocked { opacity:.48; filter:saturate(.45); cursor:not-allowed; border-color:rgba(150,150,150,.25); }

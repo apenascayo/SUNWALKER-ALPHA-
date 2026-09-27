@@ -1,4 +1,4 @@
-# Sunwalker Alpha 1.5 — Movimentação + Combate + Progressão
+# Sunwalker Alpha 2.0 — Movimentação + Combate + Progressão
 
 ## Controles
 - WASD: movimento em 8 dire??es.
@@ -25,7 +25,7 @@ O jogador tem 3 segundos de aviso para sair da zona antes que o dano de fogo pas
 - Morte por espada: -1 reputa??o.
 - Desmaio por 3 bainhadas: +2 reputa??o.
 
-## Progressão Alpha 1.5
+## Progressão Alpha 2.0
 - Cada morte concede 5 XP e cada desmaio 10 XP, sem duplicação; 100 XP abre a escolha de um upgrade de vida, ataque, velocidade ou stamina (até cinco níveis por atributo). Cada upgrade aumenta o atributo em 10%; stamina aumenta `maxStamina`, consumo e regeneração respeitam o novo máximo.
 - O HUD exibe o nível atual do jogador e seu XP; ao escolher um upgrade, o nível aumenta. Inimigos exibem acima da cabeça o nível da wave (incluindo arqueiros e chefão).
 - O intervalo de respawn é de 50s nas waves iniciais, 45s a partir da wave 5 e 30s a partir da wave 10.
@@ -40,3 +40,14 @@ Abra index.html diretamente no navegador.
 - A bomba de fogo usa hitbox oval/retangular de 50x150px centrada no impacto, com dano cont?nuo de 15% por segundo e status burning.
 - A explos?o visual em tela dura ~300-500ms com anel expandindo e part?culas leves para feedback sem travar o loop.
 - Os efeitos de ?udio do invent?rio, wave, coins, level-up, bomba e upgrade est?o integrados ao gameplay e usam volume de efeitos configur?vel.
+
+## Alpha 2.0 — Correção da textura do Sertão
+- Corrigida a sobrescrita do renderizador do chão que fazia o jogo voltar ao piso cinza quadriculado.
+- O piso do mapa usa uma textura procedural de deserto, sem depender de arquivo PNG externo.
+- O carregamento da textura foi antecipado com preload para evitar o fallback visual no início da partida.
+
+
+### Alpha 2.0 — Chão desértico procedural
+- Removida a textura externa `desert-sertao.png`.
+- O chão voltou a usar uma textura procedural de areia seca, com granulação, marcas de vento, folhas secas e pequenos gravetos.
+- A textura é criada uma única vez e reutilizada para preservar o desempenho.

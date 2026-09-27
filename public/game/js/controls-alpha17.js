@@ -1,5 +1,5 @@
 (() => {
-  // Alpha 1.9: mantém o DASH original do jogo (teleporte),
+  // Alpha 2.0: mantém o DASH original do jogo (teleporte),
   // com som e animação do sistema base. Defesa e corrida continuam desativadas.
   const originalInputDown = Input.down.bind(Input);
   const originalInputConsume = Input.consume.bind(Input);
@@ -70,8 +70,8 @@
   setInterval(() => { setupGodMode(); updateGodModeUI(); refreshGodModeResources(); }, 100);
   setupGodMode();
 
-  // O sistema antigo de áudio Alpha 1.9 não é mais carregado aqui,
-  // para não sobrescrever a playlist aleatória da Alpha 1.9.
+  // O sistema antigo de áudio Alpha 2.0 não é mais carregado aqui,
+  // para não sobrescrever a playlist aleatória da Alpha 2.0.
 
   const merchantScript = document.createElement("script");
   merchantScript.src = "js/merchant-skill-ui-alpha18.js";

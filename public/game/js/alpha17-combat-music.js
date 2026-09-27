@@ -1,4 +1,4 @@
-// Trilha de combate Alpha 1.9.
+// Trilha de combate Alpha 2.0.
 // Sorteio por ciclo: todas as faixas tocam uma vez antes de qualquer repetição.
 (() => {
   const COMBAT_MUSIC_TRACKS = [
@@ -37,8 +37,9 @@
       el.type = "button";
       document.body.appendChild(el);
     }
-    el.hidden = true;
-    el.style.display = "none";
+    el.hidden = false;
+    el.style.display = "block";
+    el.style.opacity = "0";
     el.textContent = "";
     el.onclick = null;
     return el;
@@ -65,7 +66,22 @@
     musicState.audio.currentTime = 0;
     playNextMusicTrack();
   }
+  function restartMusicRandom() {
+    if (typeof musicState === "undefined") return;
+    // Reinicia o saco para que uma nova vida comece com uma ordem aleatória nova.
+    musicBag = [];
+    lastPlayedIndex = -1;
+    refillMusicBag();
+    if (!musicState.audio) {
+      if (typeof window.startMusic === "function") window.startMusic();
+      return;
+    }
+    musicState.audio.pause();
+    musicState.audio.currentTime = 0;
+    playNextMusicTrack();
+  }
   window.playNextMusicTrack = playNextMusicTrack;
+  window.sunwalkerRestartMusicRandom = restartMusicRandom;
   window.sunwalkerChangeMusic = changeMusicNow;
   window.startMusic = function() {
     if (musicState.started) return;
