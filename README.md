@@ -1,3 +1,91 @@
+SUNWALKER — ALPHA 1.9
+Atualizações da Alpha 1.9
+
+🌳 Árvore de Habilidades
+Alterada de Árvore da Espada para Árvore de Habilidades.
+O botão da HUD agora apresenta somente o símbolo da árvore.
+Ao abrir a árvore de habilidades, o jogo é pausado.
+Ao fechar a árvore, o jogo retorna ao estado normal.
+Corrigidas as habilidades da bainha, que não estavam sendo aplicadas.
+No nível máximo da bainha, inimigos comuns podem ter a possibilidade de mudar de lado e se tornar aliados.
+
+⭐ Sistema de XP e Níveis
+XP agora é acumulativo.
+XP excedente não é perdido ao subir de nível.
+O jogador continua recebendo XP mesmo quando ainda possui XP suficiente para progressões adicionais.
+Corrigido o processamento de múltiplos níveis.
+
+🔫 Trabuco
+Adicionado sistema de munição com 15 balas.
+Adicionado cooldown após o disparo.
+Adicionado som de recarga.
+Adicionada mira para indicar o local do disparo.
+Adicionado painel indicando a arma atualmente equipada.
+NPC comum: 1 tiro.
+Arqueiros: 2 tiros.
+Chefes: 5 tiros.
+Corrigido o dano contra chefes para que cada tiro reduza corretamente sua barra de vida.
+
+📦 Caixa de Balas
+Adicionada a Caixa de Balas ao mercador.
+Cada caixa fornece 30 balas.
+Adicionado efeito visual amarelo ao utilizar a caixa.
+Adicionado som de uso da caixa.
+A quantidade de munição é atualizada corretamente após o uso.
+
+🧲 Imã
+Adicionado o item Imã, com três níveis:
+
+Nível	Área de atração	Preço
+1	50 px	50 moedas
+2	100 px	75 moedas
+3	200 px	100 moedas
+As moedas dentro da área de alcance são atraídas automaticamente para o jogador.
+O nível máximo é o nível 3.
+
+🏡 Casa Segura
+Área de pesca desativada.
+Criada uma nova área verde para funcionar como Casa Segura.
+Inimigos não devem atacar ou perseguir o jogador dentro da área segura.
+Corrigida a camada de renderização para que a área não fique sobre os personagens, NPCs e demais elementos da tela.
+
+🏹 Arqueiros
+Corrigido o som das flechas.
+O áudio agora é executado durante o disparo do arqueiro.
+
+🍯 Melador
+Adicionado som de cura ao utilizar o item.
+Adicionado efeito visual vermelho no personagem.
+Adicionada animação para indicar que o efeito de cura foi aplicado.
+
+🎵 Sistema de Áudio
+Corrigido o som de recarga do trabuco.
+Corrigido o som das flechas.
+Adicionado som da Caixa de Balas.
+Adicionado som do Melador.
+Corrigida a reprodução da música Combaião Determinado.
+Ajustado o carregamento dos arquivos de áudio para evitar problemas causados por nomes de arquivos.
+
+💰 Modo Deus
+Corrigido o contador de moedas após desativar o Modo Deus.
+O valor original de moedas do jogador é preservado e restaurado corretamente.
+
+🖥️ HUD e Informações
+Informações de combate foram retiradas do centro da tela.
+Mensagens como inimigos derrotados, XP, moedas e recarga agora aparecem no canto inferior da HUD.
+Mantido o painel de informações da arma atual.
+
+🧊 Correções de Travamentos
+Corrigidos estados que poderiam deixar o jogador travado.
+Corrigidos estados de NPCs que poderiam permanecer presos em combate.
+Adicionado sistema de recuperação para estados de dano, atordoamento e ataques interrompidos.
+Corrigida a recuperação de estados inválidos.
+Adicionada proteção contra coordenadas inválidas (NaN/Infinity).
+
+🏷️ Versão
+
+SUNWALKER — Alpha 1.9
+
 # Sunwalker — Alpha 1.8.5
 
 Sunwalker é um jogo estático desenvolvido em HTML, CSS e JavaScript, executado diretamente no navegador e servido por um servidor HTTP nativo em Node.js. A Alpha 1.8.5 consolida os sistemas implementados e os sistemas temporariamente suspensos para os próximos testes.
