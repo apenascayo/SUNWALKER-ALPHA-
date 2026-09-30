@@ -1,0 +1,21 @@
+SUN WALKER — CUSTODIA CORPORIS
+
+Este pacote contém os arquivos do projeto que foram alterados para integrar o Pergaminho Sagrado.
+
+APLICAÇÃO:
+1. Faça uma cópia de segurança do seu SUNWALKER-ALPHA--main.
+2. Extraia este ZIP diretamente sobre a raiz do projeto.
+3. Aceite substituir os arquivos existentes.
+4. O server/, assets/, músicas, SFX e demais arquivos do jogo permanecem os originais do projeto.
+5. Execute npm start e abra http://localhost:3000/game/
+
+Arquivos alterados:
+public/game/index.html
+public/game/js/config.js
+public/game/js/entities.js
+public/game/js/combat.js
+public/game/js/game.js
+public/game/js/render.js
+public/game/js/merchant-skill-ui-alpha18.js
+
+A funcionalidade foi integrada diretamente nesses arquivos; não é necessário adicionar um novo script.
