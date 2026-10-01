@@ -33,10 +33,23 @@ class Player {
     this.swordSkillTree = { fire: 0, lightning: 0, sheath: 0 };
     this.upgrades = { health: 0, attack: 0, speed: 0, stamina: 0 };
     this.statMultipliers = { health: 1, attack: 1, speed: 1, stamina: 1 };
-    this.inventory = { melador: 0, fireBomb: 0, ammoBox: 0 };
+    const savedCorpusCustodia = localStorage.getItem("sunwalker_corpus_custodia_count");
+    const corpusCustodiaCount = savedCorpusCustodia === null
+      ? (localStorage.getItem("sunwalker_corpus_custodia") === "true" ? 1 : 0)
+      : Math.max(0, Number.parseInt(savedCorpusCustodia, 10) || 0);
+    this.inventory = { melador: 0, fireBomb: 0, ammoBox: 0, corpusCustodia: corpusCustodiaCount };
+    localStorage.setItem("sunwalker_corpus_custodia_count", String(corpusCustodiaCount));
+    localStorage.removeItem("sunwalker_corpus_custodia");
     this.selectedItem = "melador";
     this.skills = { fireSword: false, repelSheath: false };
-    this.owned = { fireSword: false, repelSheath: false, blunderbuss: false };
+    this.owned = {
+      fireSword: false,
+      repelSheath: false,
+      blunderbuss: false,
+      radiiDivini: localStorage.getItem("sunwalker_radii_divini") === "true",
+      corpusCustodia: corpusCustodiaCount > 0
+    };
+    this.radiiDiviniCooldownUntil = 0;
     this.blunderbussAmmo = 0;
     this.magnetLevel = 0;
     this.fireBurnUntil = 0;

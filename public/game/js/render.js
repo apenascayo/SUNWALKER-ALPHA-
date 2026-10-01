@@ -22,8 +22,11 @@ function drawGame() {
   drawCoins();
   drawBossDangerZones();
   drawFireBombZones();
+  drawRadiiDiviniZones();
   drawFireBombImpacts();
+  drawCorpusCustodiaCircles();
   drawEntities();
+  drawRadiiDiviniStrikes();
   drawBlunderbussTargetHighlight();
   drawAttackFX();
   drawHitSparks();
@@ -76,6 +79,126 @@ function drawFireBombZones() {
     ctx.arc(0, 0, radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawRadiiDiviniZones() {
+  const now = performance.now();
+  for (const zone of radiiDiviniZones) {
+    const s = Camera.worldToScreen(zone.x, zone.y);
+    const progress = clamp((now - zone.start) / (zone.end - zone.start || 1), 0, 1);
+    const pulse = 0.72 + Math.sin(now / 130) * 0.18;
+    const radius = zone.radius * CONFIG.TILE_WIDTH / 2;
+    ctx.save();
+    ctx.translate(s.x, s.y - 10);
+    ctx.globalAlpha = 0.92 - progress * 0.18;
+    ctx.shadowColor = "#72cfff";
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = "rgba(45,135,220,0.13)";
+    ctx.strokeStyle = `rgba(142,220,255,${pulse})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([7, 9]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(225,247,255,0.7)";
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.78, -now / 750, Math.PI * 2 - now / 750);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 0; i < 8; i++) {
+      const angle = i * Math.PI / 4 + now / 1000;
+      ctx.fillStyle = `rgba(225,247,255,${0.5 + pulse * 0.4})`;
+      ctx.beginPath();
+      ctx.arc(Math.cos(angle) * radius * 0.86, Math.sin(angle) * radius * 0.86, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function drawRadiiDiviniStrikes() {
+  const now = performance.now();
+  for (const strike of radiiDiviniStrikes) {
+    const life = clamp((strike.until - now) / (strike.until - strike.start), 0, 1);
+    const target = Camera.worldToScreen(strike.x, strike.y);
+    const topY = target.y - 190;
+    const points = [{ x: target.x + Math.sin(strike.seed) * 12, y: topY }];
+    for (let i = 1; i < 9; i++) {
+      const fraction = i / 9;
+      const noise = Math.sin(strike.seed * 0.01 + i * 12.9898) * 17;
+      points.push({
+        x: target.x + Math.sin(strike.seed) * 12 + noise * (1 - fraction),
+        y: topY + (target.y - 18 - topY) * fraction
+      });
+    }
+    points.push({ x: target.x, y: target.y - 18 });
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, life * 2.5);
+    ctx.shadowColor = "#65cfff";
+    ctx.shadowBlur = 20;
+    ctx.strokeStyle = "rgba(75,185,255,0.95)";
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    points.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
+    ctx.stroke();
+    ctx.strokeStyle = "#f1fcff";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    points.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
+    ctx.stroke();
+    ctx.fillStyle = "rgba(130,220,255,0.85)";
+    ctx.beginPath();
+    ctx.arc(target.x, target.y - 14, 10 + (1 - life) * 25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawCorpusCustodiaCircles() {
+  const now = performance.now();
+  for (const circle of corpusCustodiaCircles) {
+    const center = Camera.worldToScreen(circle.x, circle.y);
+    const active = now >= circle.armedAt;
+    const remaining = active ? circle.end - now : circle.armedAt - now;
+    const radius = circle.radius * CONFIG.TILE_WIDTH / 2;
+    const pulse = 0.7 + Math.sin(now / 90) * 0.2;
+    ctx.save();
+    ctx.translate(center.x, center.y - 8);
+    ctx.globalAlpha = active ? 0.9 : 0.38 + pulse * 0.25;
+    ctx.shadowColor = active ? "#d3a8ff" : "#8d6bba";
+    ctx.shadowBlur = active ? 15 : 5;
+    ctx.fillStyle = active ? "rgba(124,74,176,0.16)" : "rgba(124,74,176,0.07)";
+    ctx.strokeStyle = active ? `rgba(218,185,255,${pulse})` : "rgba(190,160,220,0.65)";
+    ctx.lineWidth = active ? 3 : 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash(active ? [4, 6] : [2, 9]);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.72, now / 500, Math.PI * 2 + now / 500);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 0; i < 6; i++) {
+      const angle = i * Math.PI / 3 - now / 800;
+      const x = Math.cos(angle) * radius * 0.86;
+      const y = Math.sin(angle) * radius * 0.86;
+      ctx.fillStyle = active ? "#eaddff" : "#bb9bd7";
+      ctx.font = "bold 13px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("✦", x, y + 4);
+    }
+    if (!active) {
+      ctx.fillStyle = "#eee1ff";
+      ctx.font = "bold 13px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText((remaining / 1000).toFixed(1), 0, 4);
+    }
     ctx.restore();
   }
 }
@@ -160,6 +283,11 @@ function drawMinimap() {
   ctx.fillStyle = "#e8b43b";
   ctx.beginPath();
   ctx.arc(mp.x, mp.y, 4, 0, Math.PI * 2);
+  ctx.fill();
+  const np = mapPoint(nunMerchant.x, nunMerchant.y);
+  ctx.fillStyle = "#9c83ff";
+  ctx.beginPath();
+  ctx.arc(np.x, np.y, 4, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = "#f5c542";
@@ -346,21 +474,58 @@ function drawMap() {
 }
 
 function drawEntities() {
-  const list = [...enemies.filter(e => !e.isDead()), player, merchant];
+  const list = [...enemies.filter(e => !e.isDead()), player, merchant, nunMerchant];
   list.sort((a,b) => (a.x+a.y) - (b.x+b.y));
 
   for (const entity of list) {
     try {
       if (entity === player) drawPlayer(entity);
       else if (entity === merchant) drawMerchant(entity);
+      else if (entity === nunMerchant) drawNunMerchant(entity);
       else drawEnemy(entity);
     } catch (error) {
       console.warn("[render] entidade recuperada após erro", error);
-      if (entity && entity !== player && entity !== merchant) {
+      if (entity && entity !== player && entity !== merchant && entity !== nunMerchant) {
         entity.attackPhase = null;
         entity.state = entity.isDead?.() ? "dead" : "idle";
       }
     }
+  }
+}
+
+function drawNunMerchant(nun) {
+  const s = Camera.worldToScreen(nun.x, nun.y);
+  const now = performance.now();
+  ctx.save();
+  ctx.globalAlpha = 0.48;
+  ctx.fillStyle = "#111";
+  ctx.beginPath();
+  ctx.ellipse(s.x, s.y + 6, 21, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  if (nunMerchantSprite.complete && nunMerchantSprite.naturalWidth) {
+    const width = 66, height = 87;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(nunMerchantSprite, s.x - width / 2, s.y - height + 8, width, height);
+    ctx.restore();
+  }
+
+  ctx.font = "bold 12px Arial";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#d4c5ff";
+  ctx.fillText("FREIRA", s.x, s.y - 67);
+  if (isNearNunMerchant() && !nunShopOpen) {
+    const by = s.y - 88 + Math.sin(now / 220) * 3;
+    ctx.fillStyle = "rgba(12,12,14,.88)";
+    ctx.strokeStyle = "#a78bfa";
+    ctx.lineWidth = 2;
+    ctx.fillRect(s.x - 65, by - 16, 130, 26);
+    ctx.strokeRect(s.x - 65, by - 16, 130, 26);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 13px Arial";
+    ctx.fillText("[E] MAGIAS", s.x, by + 2);
   }
 }
 
@@ -455,6 +620,7 @@ function drawCharacterBody(x, y, dir, baseScale, opts = {}) {
   const attacking = opts.attacking;
   const running = opts.running;
   const blunderbuss = !!opts.blunderbuss;
+  const corpusCustodia = !!opts.corpusCustodia;
   const clothing = opts.clothing || {};
 
   ctx.save();
@@ -560,6 +726,24 @@ function drawCharacterBody(x, y, dir, baseScale, opts = {}) {
     ctx.strokeStyle = "#b7b9b9";
     ctx.lineWidth = 2;
     ctx.strokeRect(29, -5, 7, 10);
+    ctx.restore();
+  } else if (corpusCustodia) {
+    const angle = ({up:-Math.PI/2, upRight:-Math.PI/4, right:0, downRight:Math.PI/4, down:Math.PI/2, downLeft:3*Math.PI/4, left:Math.PI, upLeft:-3*Math.PI/4})[dir] ?? 0;
+    ctx.save();
+    ctx.rotate(angle);
+    ctx.fillStyle = "#ead9ad";
+    ctx.strokeStyle = "#8b6742";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(8, -6, 18, 12, 3);
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = "#8b6742";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(12, -2); ctx.lineTo(22, -2);
+    ctx.moveTo(13, 2); ctx.lineTo(21, 2);
+    ctx.stroke();
     ctx.restore();
   } else {
     // Espada equipada: a cor e os efeitos seguem o caminho elemental da árvore.
@@ -725,6 +909,7 @@ function drawPlayer(p) {
     attacking: !!p.attack,
     sheath: p.attack && p.attack.type === "sheath",
     blunderbuss: weaponMode === "blunderbuss",
+    corpusCustodia: weaponMode === "corpusCustodia",
     running: p.isRunning,
     clothing: {
       hat: p.clothing?.hat || "none",
@@ -947,6 +1132,11 @@ function drawAttackFX() {
   const now = performance.now();
   const t = Math.min(1, (now - player.attack.startedAt) / player.attack.duration);
   const fade = 1 - t * 0.65;
+  const fireStage = typeof getSwordElementStage === "function" ? getSwordElementStage("fire") : 0;
+  const lightningStage = typeof getSwordElementStage === "function" ? getSwordElementStage("lightning") : 0;
+  const magicElement = isSword && fireStage >= 2 ? "fire" : isSword && lightningStage >= 2 ? "lightning" : null;
+  const magicColor = magicElement === "fire" ? "255,105,25" : "95,200,255";
+  const magicCoreColor = magicElement === "fire" ? "255,230,135" : "225,250,255";
 
   ctx.save();
   ctx.translate(s.x, s.y - 12);
@@ -957,11 +1147,17 @@ function drawAttackFX() {
     const sweepTo = 1.15;
     const head = sweepFrom + (sweepTo - sweepFrom) * t;
     const radius = 70;
+    if (magicElement) {
+      ctx.shadowColor = magicElement === "fire" ? "#ff4a16" : "#4bc7ff";
+      ctx.shadowBlur = 18 + Math.sin(now / 35) * 5;
+    }
     for (let i = 0; i < 7; i++) {
       const a0 = Math.max(sweepFrom, head - 0.16 * (i + 1));
       const a1 = Math.max(sweepFrom, head - 0.16 * i);
       if (a1 <= a0) continue;
-      ctx.strokeStyle = `rgba(210,240,255,${(0.85 - i * 0.11) * fade})`;
+      ctx.strokeStyle = magicElement
+        ? `rgba(${magicColor},${(0.88 - i * 0.10) * fade})`
+        : `rgba(210,240,255,${(0.85 - i * 0.11) * fade})`;
       ctx.lineWidth = 16 - i * 1.8;
       ctx.lineCap = "round";
       ctx.beginPath();
@@ -969,7 +1165,9 @@ function drawAttackFX() {
       ctx.stroke();
     }
 
-    ctx.strokeStyle = `rgba(255,255,255,${0.95 * fade})`;
+    ctx.strokeStyle = magicElement
+      ? `rgba(${magicCoreColor},${0.98 * fade})`
+      : `rgba(255,255,255,${0.95 * fade})`;
     ctx.lineWidth = 5;
     ctx.beginPath();
     ctx.arc(0, 0, radius, Math.max(sweepFrom, head - 0.5), head);
@@ -985,10 +1183,28 @@ function drawAttackFX() {
     for (let i = 0; i < 6; i++) {
       const a = sweepFrom + (head - sweepFrom) * (i / 5);
       const r = radius + Math.sin(now / 60 + i) * 8;
-      ctx.fillStyle = `rgba(230,248,255,${0.75 * fade})`;
+      ctx.fillStyle = magicElement
+        ? `rgba(${magicCoreColor},${0.86 * fade})`
+        : `rgba(230,248,255,${0.75 * fade})`;
       ctx.beginPath();
       ctx.arc(Math.cos(a) * r, Math.sin(a) * r, 2 + Math.sin(now / 90 + i) * 1.6, 0, Math.PI * 2);
       ctx.fill();
+    }
+    if (magicElement) {
+      for (let i = 0; i < 10; i++) {
+        const progress = ((i / 10) + t * 1.4) % 1;
+        const a = sweepFrom + (sweepTo - sweepFrom) * progress;
+        const r = radius + Math.sin(now / 45 + i * 2) * (magicElement === "fire" ? 13 : 9);
+        const x = Math.cos(a) * r;
+        const y = Math.sin(a) * r;
+        ctx.globalAlpha = fade * (0.55 + 0.4 * Math.sin(now / 50 + i));
+        ctx.fillStyle = i % 3 === 0 ? `rgba(${magicCoreColor},1)` : `rgba(${magicColor},1)`;
+        ctx.beginPath();
+        ctx.arc(x, y, 2 + (i % 3), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
     }
   } else if (player.attack && player.attack.type === "blunderbuss") {
     const wave = 28 + t * 70;
@@ -1047,6 +1263,51 @@ function drawHitSparks() {
     const p = Camera.worldToScreen(fx.x, fx.y);
     const sword = fx.type === "sword";
     const gun = fx.type === "blunderbuss";
+    const fire = fx.type === "fire";
+    const lightning = fx.type === "lightning";
+    if (fire || lightning) {
+      const elapsed = (now - fx.start) / (fx.until - fx.start);
+      const color = fire ? "255,105,25" : "105,210,255";
+      const core = fire ? "255,238,145" : "235,252,255";
+      const radius = (10 + (1 - life) * 34) * (fire ? 1.15 : 1);
+      ctx.save();
+      ctx.globalAlpha = life;
+      ctx.translate(p.x, p.y - 14);
+      ctx.shadowColor = fire ? "#ff4a16" : "#4bc7ff";
+      ctx.shadowBlur = 14 * life;
+      ctx.strokeStyle = `rgba(${color},${0.9 * life})`;
+      ctx.lineWidth = fire ? 4 : 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, elapsed * 2, elapsed * 2 + Math.PI * 1.65);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(${core},${0.9 * life})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.55, -elapsed * 2, -elapsed * 2 + Math.PI * 1.3);
+      ctx.stroke();
+      for (let i = 0; i < 9; i++) {
+        const angle = (Math.PI * 2 * i) / 9 + elapsed * (fire ? 5 : -4);
+        const distance = radius * (0.78 + (i % 3) * 0.18);
+        const x = Math.cos(angle) * distance;
+        const y = Math.sin(angle) * distance;
+        if (lightning && i % 3 === 0) {
+          ctx.strokeStyle = `rgba(${core},${0.9 * life})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + Math.cos(angle + 0.55) * 6, y + Math.sin(angle + 0.55) * 6);
+          ctx.lineTo(x + Math.cos(angle - 0.2) * 11, y + Math.sin(angle - 0.2) * 11);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = i % 2 ? `rgba(${color},${life})` : `rgba(${core},${life})`;
+          ctx.beginPath();
+          ctx.arc(x, y, fire ? 2 + (i % 3) : 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+      continue;
+    }
     ctx.save();
     ctx.globalAlpha = life;
     ctx.strokeStyle = gun ? "rgba(255,180,70,.98)" : sword ? "rgba(255,255,255,.95)" : "rgba(255,225,160,.95)";

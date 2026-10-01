@@ -12,10 +12,14 @@ let hitSparks = [];
 let coins = [];
 let fireBombZones = [];
 let fireBombImpacts = [];
+let radiiDiviniZones = [];
+let radiiDiviniStrikes = [];
+let corpusCustodiaCircles = [];
 let nextRespawnAt = 0;
 let waveCounter = 1;
 let settingsOpen = false;
 let merchantOpen = false;
+let nunShopOpen = false;
 let inventoryOpen = false;
 let levelUpOpen = false;
 let gameStarted = false;
@@ -353,6 +357,9 @@ function resetGame() {
   coins = [];
   fireBombZones = [];
   fireBombImpacts = [];
+  radiiDiviniZones = [];
+  radiiDiviniStrikes = [];
+  corpusCustodiaCircles = [];
   nextRespawnAt = performance.now() + getWaveInterval(waveCounter);
   inventoryOpen = false;
   levelUpOpen = false;
@@ -603,7 +610,9 @@ function updateEnemies(dt, now) {
       }
     }
   }
-  try { updateFireBombZones(now); } catch (error) { console.warn("[game] area de bomba recuperada após erro", error); }
+  try { updateFireBombZones(now); } catch (error) { console.warn("[game] área de bomba recuperada após erro", error); }
+  try { updateRadiiDiviniZones(now); } catch (error) { console.warn("[game] área de Radii Divini recuperada após erro", error); }
+  try { updateCorpusCustodia(now); } catch (error) { console.warn("[game] Corpus Custodia recuperada após erro", error); }
 }
 
 function createFireBombZone(now) {
@@ -615,6 +624,60 @@ function createFireBombZone(now) {
   const radius = (CONFIG.fireBombRadiusPixels || 75) / pixelsPerWorldUnit;
   fireBombZones.push({ x: impactX, y: impactY, radius, start: now, end: now + CONFIG.fireBombDuration, nextTicks: {} });
   fireBombImpacts.push({ x: impactX, y: impactY, start: now, end: now + (CONFIG.fireBombImpactDurationMs || 450), ring: 0 });
+}
+
+function hasRadiiDivini() {
+  return !!(player.owned && player.owned.radiiDivini) || localStorage.getItem("sunwalker_radii_divini") === "true";
+}
+
+function hasCorpusCustodia() {
+  return Number(player.inventory && player.inventory.corpusCustodia) > 0;
+}
+
+function updateCorpusCustodia(now) {
+  corpusCustodiaCircles = corpusCustodiaCircles.filter(circle => circle.end > now);
+  for (const circle of corpusCustodiaCircles) {
+    if (now < circle.armedAt) continue;
+    for (const enemy of enemies) {
+      if (enemy.isDead() || Math.hypot(enemy.x - circle.x, enemy.y - circle.y) > circle.radius) continue;
+      enemy.stunnedUntil = Math.max(enemy.stunnedUntil || 0, now + 100);
+      enemy.state = "stunned";
+      enemy.attackPhase = null;
+    }
+  }
+}
+
+function createRadiiDiviniZone(now) {
+  const direction = directionVector(player.direction);
+  radiiDiviniZones.push({
+    x: player.x + direction.x * CONFIG.radiiDiviniOffsetWorld,
+    y: player.y + direction.y * CONFIG.radiiDiviniOffsetWorld,
+    radius: CONFIG.radiiDiviniRadiusWorld,
+    start: now,
+    end: now + CONFIG.radiiDiviniDurationMs,
+    nextTicks: Object.create(null)
+  });
+  player.radiiDiviniCooldownUntil = now + CONFIG.radiiDiviniCooldownMs;
+  playSound("magic");
+  showMessage("RADII DIVINI — CÍRCULO INVOCADO");
+}
+
+function updateRadiiDiviniZones(now) {
+  radiiDiviniZones = radiiDiviniZones.filter(zone => zone.end > now);
+  radiiDiviniStrikes = radiiDiviniStrikes.filter(strike => strike.until > now);
+  for (const zone of radiiDiviniZones) {
+    for (const enemy of enemies) {
+      if (enemy.isDead() || Math.hypot(enemy.x - zone.x, enemy.y - zone.y) > zone.radius) continue;
+      const nextTick = zone.nextTicks[enemy.id];
+      if (nextTick !== undefined && now < nextTick) continue;
+      zone.nextTicks[enemy.id] = now + CONFIG.radiiDiviniTickMs;
+      const damage = Math.max(1, Math.round(enemy.maxHp * CONFIG.radiiDiviniDamagePercent));
+      damageEnemy(enemy, damage, 0, 0, now, "radiiDivini");
+      radiiDiviniStrikes.push({ x: enemy.x, y: enemy.y, start: now, until: now + 420, seed: enemy.id + now });
+      spawnHitSpark(enemy.x, enemy.y, now, "lightning");
+      playSound("magic");
+    }
+  }
 }
 
 function updateFireBombZones(now) {
@@ -683,7 +746,7 @@ function updateHUD() {
   if (state) state.textContent = stateText;
   if (reputationText) reputationText.textContent = `${Math.round(player.reputation)}/${CONFIG.reputationMax}`;
   if (reputationBar) reputationBar.style.width = `${player.reputation / CONFIG.reputationMax * 100}%`;
-  const weaponName = weaponMode === "sword" ? "ESPADA" : weaponMode === "sheath" ? "BAINHA" : "TRABUCO";
+  const weaponName = weaponMode === "sword" ? "ESPADA" : weaponMode === "sheath" ? "BAINHA" : weaponMode === "blunderbuss" ? "TRABUCO" : weaponMode === "radiiDivini" ? "RADII DIVINI" : "CORPUS CUSTODIA";
   if (weaponText) weaponText.textContent = weaponName + (isAiming ? " (MIRANDO)" : "");
   const weaponStatus = document.getElementById("weaponStatus");
   const weaponIcon = document.getElementById("weaponIcon");
@@ -691,12 +754,14 @@ function updateHUD() {
   const weaponAmmo = document.getElementById("weaponAmmo");
   const weaponCooldown = document.getElementById("weaponCooldown");
   if (weaponStatus) weaponStatus.dataset.weapon = weaponMode;
-  if (weaponIcon) weaponIcon.textContent = weaponMode === "sword" ? "⚔" : weaponMode === "sheath" ? "🗡" : "🔫";
+  if (weaponIcon) weaponIcon.textContent = weaponMode === "sword" ? "⚔" : weaponMode === "sheath" ? "🗡" : weaponMode === "blunderbuss" ? "🔫" : weaponMode === "radiiDivini" ? "⚡" : "📜";
   if (weaponStatusName) weaponStatusName.textContent = weaponName;
-  if (weaponAmmo) weaponAmmo.textContent = weaponMode === "blunderbuss" ? `${player.blunderbussAmmo} BALAS` : "ARMA CORPO A CORPO";
+  if (weaponAmmo) weaponAmmo.textContent = weaponMode === "blunderbuss" ? `${player.blunderbussAmmo} BALAS` : weaponMode === "corpusCustodia" ? `${player.inventory.corpusCustodia} PERGAMINHO(S)` : weaponMode === "radiiDivini" ? "MAGIA DE ÁREA" : "ARMA CORPO A CORPO";
   if (weaponCooldown) {
-    const remaining = weaponMode === "blunderbuss" ? Math.max(0, player.blunderbussCooldownUntil - now) : 0;
-    weaponCooldown.textContent = remaining > 0 ? `RECARREGANDO ${(remaining / 1000).toFixed(1)}s` : (weaponMode === "blunderbuss" ? "PRONTO PARA ATIRAR" : "PRONTA");
+    const remaining = weaponMode === "blunderbuss" ? Math.max(0, player.blunderbussCooldownUntil - now) : weaponMode === "radiiDivini" ? Math.max(0, player.radiiDiviniCooldownUntil - now) : 0;
+    weaponCooldown.textContent = remaining > 0
+      ? `RECARGA ${(remaining / 1000).toFixed(1)}s`
+      : (weaponMode === "blunderbuss" ? "PRONTO PARA ATIRAR" : weaponMode === "corpusCustodia" ? "ATAQUE PARA USAR" : "PRONTA");
     weaponCooldown.classList.toggle("reloading", remaining > 0);
   }
   if (coinText) coinText.textContent = String(player.coins);
@@ -723,16 +788,24 @@ function update(dt, now) {
     nextRespawnAt = now + getWaveInterval(waveCounter);
   }
   if (Input.consume("escape")) {
-    if (merchantOpen) toggleMerchant(false);
+    if (nunShopOpen) toggleNunShop(false);
+    else if (merchantOpen) toggleMerchant(false);
     else if (!settingsOpen) togglePause();
   }
-  if (Input.consume("i") && !paused && !settingsOpen && !merchantOpen) toggleInventory();
-  if (Input.consume("f") && !paused && !settingsOpen && !merchantOpen && !levelUpOpen) useSelectedItem();
+  if (Input.consume("i") && !paused && !settingsOpen && !merchantOpen && !nunShopOpen) toggleInventory();
+  if (Input.consume("f") && !paused && !settingsOpen && !merchantOpen && !nunShopOpen && !levelUpOpen) useSelectedItem();
   if (Input.consume("e") && !paused && !settingsOpen && !inventoryOpen) {
-    if (merchantOpen) toggleMerchant(false);
-    else if (isNearMerchant()) toggleMerchant(true);
+    if (nunShopOpen) toggleNunShop(false);
+    else if (merchantOpen) toggleMerchant(false);
+    else {
+      const merchantDist = merchantDistance();
+      const nunDist = nunMerchantDistance();
+      if (nunDist <= CONFIG.nunMerchantInteractRange && nunDist < merchantDist) toggleNunShop(true);
+      else if (isNearMerchant()) toggleMerchant(true);
+      else if (nunDist <= CONFIG.nunMerchantInteractRange) toggleNunShop(true);
+    }
   }
-  if (paused || settingsOpen || merchantOpen || inventoryOpen || levelUpOpen) {
+  if (paused || settingsOpen || merchantOpen || nunShopOpen || inventoryOpen || levelUpOpen) {
     updateHUD();
     updateMessage(now);
     return;
@@ -826,6 +899,8 @@ function gameLoop(timestamp) {
 
 const merchantSprite = new Image();
 merchantSprite.src = "assets/mercador.png";
+const nunMerchantSprite = new Image();
+nunMerchantSprite.src = "assets/freira.png";
 
 const SOUNDS = {
   sword: "assets/sword.mp3",
@@ -846,7 +921,9 @@ const SOUNDS = {
   rechargeGun: "assets/sfx/recharge-gun.wav",
   heal: "assets/sfx/cura.mp3",
   ammoBox: "assets/sfx/balas.mp3",
-  xp: "assets/sfx/xp.mp3"
+  xp: "assets/sfx/xp.mp3",
+  magic: "assets/sfx/magic.mp3",
+  nunLaugh: "assets/sfx/nun-laugh.mp3"
 };
 
 const soundCache = {};
@@ -891,6 +968,9 @@ function preloadSounds() {
 const merchant = { x: CONFIG.merchantX, y: CONFIG.merchantY, name: "MERCANTE" };
 function merchantDistance() { return Math.hypot(player.x - merchant.x, player.y - merchant.y); }
 function isNearMerchant() { return merchantDistance() <= CONFIG.merchantInteractRange; }
+const nunMerchant = { x: CONFIG.nunMerchantX, y: CONFIG.nunMerchantY, name: "FREIRA" };
+function nunMerchantDistance() { return Math.hypot(player.x - nunMerchant.x, player.y - nunMerchant.y); }
+function isNearNunMerchant() { return nunMerchantDistance() <= CONFIG.nunMerchantInteractRange; }
 
 function refreshSkillUI() {
   const item = document.getElementById("itemMelador");
@@ -924,6 +1004,9 @@ function refreshSkillUI() {
   }
   const mc = document.getElementById("merchantCoins");
   if (mc) mc.textContent = String(player.coins);
+  const nc = document.getElementById("nunMerchantCoins");
+  if (nc) nc.textContent = String(player.coins);
+  refreshNunShopUI();
 }
 
 function toggleInventory(show) {
@@ -1207,6 +1290,66 @@ function toggleMerchant(show) {
   if (merchantOpen) { playSound("merchant"); refreshSkillUI(); setupClothingUI(); toggleMerchantTab("Items"); }
 }
 
+function refreshNunShopUI() {
+  const card = document.getElementById("radiiDiviniCard");
+  const state = document.getElementById("radiiDiviniState");
+  const coins = document.getElementById("nunMerchantCoins");
+  if (coins) coins.textContent = String(player.coins);
+  if (card) card.classList.toggle("active", hasRadiiDivini());
+  if (state) state.textContent = hasRadiiDivini()
+    ? "APRENDIDA — R PARA EQUIPAR"
+    : `COMPRAR — ${CONFIG.radiiDiviniCost} MOEDAS`;
+  const corpusCard = document.getElementById("corpusCustodiaCard");
+  const corpusState = document.getElementById("corpusCustodiaState");
+  if (corpusCard) corpusCard.classList.toggle("active", hasCorpusCustodia());
+  if (corpusState) corpusState.textContent = `COMPRAR PERGAMINHO — ${CONFIG.corpusCustodiaCost} MOEDAS (POSSUI: ${player.inventory.corpusCustodia || 0})`;
+}
+
+function buyRadiiDivini() {
+  if (hasRadiiDivini()) { showMessage("RADII DIVINI JÁ APRENDIDA"); return; }
+  if (player.coins < CONFIG.radiiDiviniCost) {
+    showMessage(`MOEDAS INSUFICIENTES (${CONFIG.radiiDiviniCost})`);
+    return;
+  }
+  player.coins -= CONFIG.radiiDiviniCost;
+  player.owned.radiiDivini = true;
+  localStorage.setItem("sunwalker_radii_divini", "true");
+  playPurchaseSound();
+  weaponMode = "radiiDivini";
+  showMessage("RADII DIVINI APRENDIDA — PRESSIONE R PARA EQUIPAR");
+  refreshNunShopUI();
+  refreshSkillUI();
+  refreshInventoryUI();
+}
+
+function buyCorpusCustodia() {
+  if (player.coins < CONFIG.corpusCustodiaCost) {
+    showMessage(`MOEDAS INSUFICIENTES (${CONFIG.corpusCustodiaCost})`);
+    return;
+  }
+  player.coins -= CONFIG.corpusCustodiaCost;
+  player.inventory.corpusCustodia = (player.inventory.corpusCustodia || 0) + 1;
+  player.owned.corpusCustodia = true;
+  localStorage.setItem("sunwalker_corpus_custodia_count", String(player.inventory.corpusCustodia));
+  weaponMode = "corpusCustodia";
+  playPurchaseSound();
+  showMessage(`PERGAMINHO CORPUS CUSTODIA COMPRADO — ${player.inventory.corpusCustodia} DISPONÍVEL(IS)`);
+  refreshNunShopUI();
+  refreshSkillUI();
+  refreshInventoryUI();
+}
+
+function toggleNunShop(show) {
+  const opening = typeof show === "boolean" ? show && !nunShopOpen : !nunShopOpen;
+  nunShopOpen = typeof show === "boolean" ? show : !nunShopOpen;
+  const overlay = document.getElementById("nunMerchantOverlay");
+  if (overlay) overlay.classList.toggle("hidden", !nunShopOpen);
+  if (nunShopOpen) {
+    if (opening) playSound("nunLaugh");
+    refreshSkillUI();
+  }
+}
+
 document.getElementById("restartButton").addEventListener("click", resetGame);
 document.getElementById("pauseButton").addEventListener("click", () => togglePause());
 document.getElementById("settingsButton").addEventListener("click", () => { if (!paused) toggleSettings(); });
@@ -1216,6 +1359,9 @@ document.getElementById("closeSettingsButton").addEventListener("click", () => t
 document.querySelectorAll('input[name="attackMode"]').forEach(r => r.addEventListener("change", e => setAttackControlMode(e.target.value)));
 document.getElementById("debugToggle").addEventListener("change", e => setDebug(e.target.checked));
 document.getElementById("closeMerchantButton").addEventListener("click", () => toggleMerchant(false));
+document.getElementById("closeNunMerchantButton").addEventListener("click", () => toggleNunShop(false));
+document.getElementById("radiiDiviniCard").addEventListener("click", buyRadiiDivini);
+document.getElementById("corpusCustodiaCard").addEventListener("click", buyCorpusCustodia);
 document.getElementById("itemMelador").addEventListener("click", buyMelador);
 document.getElementById("itemFireBomb").addEventListener("click", buyFireBomb);
 const blunderbussButton = document.getElementById("itemBlunderbuss");
