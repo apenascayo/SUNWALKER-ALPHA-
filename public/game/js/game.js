@@ -1156,7 +1156,7 @@ const CLOTHING_CATALOG = {
     ronin: { label: "CHAPÉU RONIN", price: 150 }
   },
   shirts: {
-    black: { label: "CAMISA PRETA", price: 0, color: "#050505" },
+    black: { label: "REGATA BRANCA", price: 0, color: "#e8e1d2" },
     red: { label: "CAMISA VERMELHA", price: 30, color: "#7d2f2f" },
     green: { label: "CAMISA VERDE", price: 30, color: "#315b3b" },
     blue: { label: "CAMISA AZUL", price: 30, color: "#2e4f78" },

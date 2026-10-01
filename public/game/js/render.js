@@ -588,7 +588,7 @@ function drawMerchant(m) {
 function drawArm(x, y, dir, side, opts = {}) {
   const now = performance.now();
   const swing = opts.attacking ? Math.sin(now / 90 + side * 0.8) * 0.18 : 0;
-  const armColor = opts.enemy ? "#8f4841" : "#d7e2f5";
+  const armColor = opts.enemy ? "#8f4841" : (opts.skin ? "#c08a5c" : "#d7e2f5");
   const vectors = {
     up: { x: 0, y: -1 }, upRight: { x: 0.7, y: -0.7 },
     right: { x: 1, y: 0 }, downRight: { x: 0.7, y: 0.7 },
@@ -643,9 +643,12 @@ function drawCharacterBody(x, y, dir, baseScale, opts = {}) {
   ctx.fill();
   ctx.globalAlpha = 1;
 
-  ctx.fillStyle = "#17181b";
+  ctx.fillStyle = "#1a1a22";
   ctx.fillRect(-9, 3, 7, 17);
   ctx.fillRect(2, 3, 7, 17);
+  ctx.fillStyle = "#5a3119";
+  ctx.fillRect(-9, 15, 7, 5);
+  ctx.fillRect(2, 15, 7, 5);
 
   const shirtBase = opts.boss ? "#111214" : (opts.archer ? "#542b72" : (opts.enemy ? "#6f2f2f" : (clothing.shirtColor || "#1c2835")));
   const shirtDetail = opts.boss ? "#050506" : (opts.archer ? "#75409a" : (opts.enemy ? "#a14c3d" : (clothing.shirtDetail || "#344c63")));
@@ -661,20 +664,22 @@ function drawCharacterBody(x, y, dir, baseScale, opts = {}) {
     ctx.globalAlpha = 1;
   }
 
-  drawArm(0, -4, dir, 0, { attacking, enemy: !!opts.enemy });
-  drawArm(0, -4, dir, 1, { attacking, enemy: !!opts.enemy });
+  drawArm(0, -4, dir, 0, { attacking, enemy: !!opts.enemy, skin: !opts.enemy && !opts.boss && !opts.archer });
+  drawArm(0, -4, dir, 1, { attacking, enemy: !!opts.enemy, skin: !opts.enemy && !opts.boss && !opts.archer });
 
-  ctx.fillStyle = "#b58a58";
+  ctx.fillStyle = "#a9703f";
   ctx.beginPath();
   ctx.arc(0, -18, 10, 0, Math.PI * 2);
   ctx.fill();
 
   const hat = clothing.hat || "none";
-  if (hat === "straw") {
-    ctx.fillStyle = "#b99b62";
+  if (hat === "straw" || hat === "none") {
+    ctx.fillStyle = "#6c4327";
+    ctx.beginPath(); ctx.ellipse(0, -25, 24, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#c9a05c";
     ctx.beginPath(); ctx.ellipse(0, -27, 23, 7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#c9ad73";
-    ctx.beginPath(); ctx.moveTo(-11, -27); ctx.lineTo(0, -41); ctx.lineTo(11, -27); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#a87940";
+    ctx.beginPath(); ctx.moveTo(-11, -27); ctx.lineTo(0, -40); ctx.lineTo(11, -27); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = "#6e5736"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8,-29); ctx.lineTo(8,-29); ctx.stroke();
   } else if (hat === "kasa") {
     ctx.fillStyle = "#6b675b";
@@ -913,8 +918,8 @@ function drawPlayer(p) {
     running: p.isRunning,
     clothing: {
       hat: p.clothing?.hat || "none",
-      shirtColor: ({black:"#050505", red:"#7d2f2f", green:"#315b3b", blue:"#2e4f78", beige:"#9a805f"}[p.clothing?.shirt] || "#050505"),
-      shirtDetail: ({black:"#101010", red:"#a14c4c", green:"#4d7d59", blue:"#4c73a0", beige:"#c0a57a"}[p.clothing?.shirt] || "#101010")
+      shirtColor: ({black:"#e8e1d2", red:"#7d2f2f", green:"#315b3b", blue:"#2e4f78", beige:"#9a805f"}[p.clothing?.shirt] || "#e8e1d2"),
+      shirtDetail: ({black:"#d3c9b3", red:"#a14c4c", green:"#4d7d59", blue:"#4c73a0", beige:"#c0a57a"}[p.clothing?.shirt] || "#d3c9b3")
     }
   });
   if (p.fireBurnUntil > performance.now()) drawBurningEffect(p.x, p.y);
