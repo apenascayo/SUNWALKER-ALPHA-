@@ -472,14 +472,39 @@ function drawBurningEffect(x, y) {
 
 function drawPlayer(p) {
   drawAimRing(p);
-  drawCharacterBody(p.x, p.y, p.direction, 1.0, {
-    flash: p.hitFlashUntil > performance.now(),
-    defending: p.isDefending(),
-    attacking: !!p.attack,
-    sheath: p.attack && p.attack.type === "sheath",
-    running: p.isRunning
-  });
-  if (p.fireBurnUntil > performance.now()) drawBurningEffect(p.x, p.y);
+
+  const now = performance.now();
+  const s = Camera.worldToScreen(p.x, p.y);
+
+  // Keep the old ground shadow so the new pixel-art sprite stays anchored to the map.
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = "#111";
+  ctx.beginPath();
+  ctx.ellipse(s.x, s.y + 6, 20, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  const spriteDrawn = typeof drawPlayerSprite === "function" && drawPlayerSprite(p);
+  if (!spriteDrawn) {
+    drawCharacterBody(p.x, p.y, p.direction, 1.0, {
+      flash: p.hitFlashUntil > now,
+      defending: p.isDefending(),
+      attacking: !!p.attack,
+      sheath: p.attack && p.attack.type === "sheath",
+      running: p.isRunning
+    });
+  } else if (p.isDefending()) {
+    ctx.save();
+    ctx.strokeStyle = "#8dd7ff";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y - 12, 25, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (p.fireBurnUntil > now) drawBurningEffect(p.x, p.y);
 
   if (p.dashTrail && p.dashTrail.length) {
     const now = performance.now();
