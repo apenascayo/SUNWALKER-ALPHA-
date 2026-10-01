@@ -37,16 +37,22 @@ class Player {
     const corpusCustodiaCount = savedCorpusCustodia === null
       ? (localStorage.getItem("sunwalker_corpus_custodia") === "true" ? 1 : 0)
       : Math.max(0, Number.parseInt(savedCorpusCustodia, 10) || 0);
-    this.inventory = { melador: 0, fireBomb: 0, ammoBox: 0, corpusCustodia: corpusCustodiaCount };
+    const savedRadiiDivini = localStorage.getItem("sunwalker_radii_divini_count");
+    const radiiDiviniCount = savedRadiiDivini === null
+      ? (localStorage.getItem("sunwalker_radii_divini") === "true" ? 1 : 0)
+      : Math.max(0, Number.parseInt(savedRadiiDivini, 10) || 0);
+    this.inventory = { melador: 0, fireBomb: 0, ammoBox: 0, corpusCustodia: corpusCustodiaCount, radiiDivini: radiiDiviniCount };
     localStorage.setItem("sunwalker_corpus_custodia_count", String(corpusCustodiaCount));
     localStorage.removeItem("sunwalker_corpus_custodia");
+    localStorage.setItem("sunwalker_radii_divini_count", String(radiiDiviniCount));
+    localStorage.removeItem("sunwalker_radii_divini");
     this.selectedItem = "melador";
     this.skills = { fireSword: false, repelSheath: false };
     this.owned = {
       fireSword: false,
       repelSheath: false,
       blunderbuss: false,
-      radiiDivini: localStorage.getItem("sunwalker_radii_divini") === "true",
+      radiiDivini: radiiDiviniCount > 0,
       corpusCustodia: corpusCustodiaCount > 0
     };
     this.radiiDiviniCooldownUntil = 0;

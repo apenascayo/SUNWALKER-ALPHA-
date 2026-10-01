@@ -44,6 +44,13 @@ function tryPlayerAttack(type, now, directionOverride = null) {
     if (now < player.radiiDiviniCooldownUntil) return;
     player.direction = directionOverride || player.direction;
     createRadiiDiviniZone(now);
+    player.inventory.radiiDivini = Math.max(0, (player.inventory.radiiDivini || 0) - 1);
+    localStorage.setItem("sunwalker_radii_divini_count", String(player.inventory.radiiDivini));
+    player.owned.radiiDivini = player.inventory.radiiDivini > 0;
+    showMessage(player.owned.radiiDivini
+      ? "RADII DIVINI — CARGAS RESTANTES: " + player.inventory.radiiDivini
+      : "RADII DIVINI ESGOTADA — COMPRE MAIS COM A FREIRA");
+    if (!player.owned.radiiDivini) weaponMode = "sword";
     return;
   }
   if (player.attack || now < player.attackCooldownUntil) return;
@@ -425,7 +432,7 @@ function updatePlayerCombat(now, dt) {
     const weaponLabels = {
       sword: "ESPADA", sheath: "BAINHA",
       blunderbuss: "TRABUCO — MIRE COM O BOTÃO DIREITO",
-      radiiDivini: "RADII DIVINI",
+      radiiDivini: `RADII DIVINI — ${player.inventory.radiiDivini || 0} CARGA(S)`,
       corpusCustodia: `CORPUS CUSTODIA — ${player.inventory.corpusCustodia} PERGAMINHO(S)`
     };
     showMessage(weaponLabels[weaponMode]);

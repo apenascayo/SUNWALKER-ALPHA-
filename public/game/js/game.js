@@ -627,7 +627,7 @@ function createFireBombZone(now) {
 }
 
 function hasRadiiDivini() {
-  return !!(player.owned && player.owned.radiiDivini) || localStorage.getItem("sunwalker_radii_divini") === "true";
+  return Number(player.inventory && player.inventory.radiiDivini) > 0;
 }
 
 function hasCorpusCustodia() {
@@ -658,6 +658,7 @@ function createRadiiDiviniZone(now) {
     nextTicks: Object.create(null)
   });
   player.radiiDiviniCooldownUntil = now + CONFIG.radiiDiviniCooldownMs;
+  player.radiiDiviniCastUntil = now + 480;
   playSound("magic");
   showMessage("RADII DIVINI — CÍRCULO INVOCADO");
 }
@@ -756,7 +757,7 @@ function updateHUD() {
   if (weaponStatus) weaponStatus.dataset.weapon = weaponMode;
   if (weaponIcon) weaponIcon.textContent = weaponMode === "sword" ? "⚔" : weaponMode === "sheath" ? "🗡" : weaponMode === "blunderbuss" ? "🔫" : weaponMode === "radiiDivini" ? "⚡" : "📜";
   if (weaponStatusName) weaponStatusName.textContent = weaponName;
-  if (weaponAmmo) weaponAmmo.textContent = weaponMode === "blunderbuss" ? `${player.blunderbussAmmo} BALAS` : weaponMode === "corpusCustodia" ? `${player.inventory.corpusCustodia} PERGAMINHO(S)` : weaponMode === "radiiDivini" ? "MAGIA DE ÁREA" : "ARMA CORPO A CORPO";
+  if (weaponAmmo) weaponAmmo.textContent = weaponMode === "blunderbuss" ? `${player.blunderbussAmmo} BALAS` : weaponMode === "corpusCustodia" ? `${player.inventory.corpusCustodia} PERGAMINHO(S)` : weaponMode === "radiiDivini" ? `${player.inventory.radiiDivini || 0} CARGA(S)` : "ARMA CORPO A CORPO";
   if (weaponCooldown) {
     const remaining = weaponMode === "blunderbuss" ? Math.max(0, player.blunderbussCooldownUntil - now) : weaponMode === "radiiDivini" ? Math.max(0, player.radiiDiviniCooldownUntil - now) : 0;
     weaponCooldown.textContent = remaining > 0
@@ -1296,9 +1297,7 @@ function refreshNunShopUI() {
   const coins = document.getElementById("nunMerchantCoins");
   if (coins) coins.textContent = String(player.coins);
   if (card) card.classList.toggle("active", hasRadiiDivini());
-  if (state) state.textContent = hasRadiiDivini()
-    ? "APRENDIDA — R PARA EQUIPAR"
-    : `COMPRAR — ${CONFIG.radiiDiviniCost} MOEDAS`;
+  if (state) state.textContent = `COMPRAR MAGIA — ${CONFIG.radiiDiviniCost} MOEDAS (POSSUI: ${player.inventory.radiiDivini || 0})`;
   const corpusCard = document.getElementById("corpusCustodiaCard");
   const corpusState = document.getElementById("corpusCustodiaState");
   if (corpusCard) corpusCard.classList.toggle("active", hasCorpusCustodia());
@@ -1306,17 +1305,17 @@ function refreshNunShopUI() {
 }
 
 function buyRadiiDivini() {
-  if (hasRadiiDivini()) { showMessage("RADII DIVINI JÁ APRENDIDA"); return; }
   if (player.coins < CONFIG.radiiDiviniCost) {
     showMessage(`MOEDAS INSUFICIENTES (${CONFIG.radiiDiviniCost})`);
     return;
   }
   player.coins -= CONFIG.radiiDiviniCost;
+  player.inventory.radiiDivini = (player.inventory.radiiDivini || 0) + 1;
   player.owned.radiiDivini = true;
-  localStorage.setItem("sunwalker_radii_divini", "true");
+  localStorage.setItem("sunwalker_radii_divini_count", String(player.inventory.radiiDivini));
   playPurchaseSound();
   weaponMode = "radiiDivini";
-  showMessage("RADII DIVINI APRENDIDA — PRESSIONE R PARA EQUIPAR");
+  showMessage(`RADII DIVINI COMPRADA — ${player.inventory.radiiDivini} DISPONÍVEL(IS)`);
   refreshNunShopUI();
   refreshSkillUI();
   refreshInventoryUI();
@@ -1409,6 +1408,11 @@ function startGame() {
   if (gameStarted) return;
   gameStarted = true;
   const overlay = document.getElementById("startOverlay");
+  const wipe = document.getElementById("screenWipeOverlay");
+  if (wipe) {
+    wipe.classList.add("active");
+    setTimeout(() => wipe.classList.remove("active"), 900);
+  }
   if (overlay) overlay.classList.add("hidden");
   paused = false;
   lastTime = 0;

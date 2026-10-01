@@ -1,3 +1,13 @@
+// Tracks each entity's last rendered position to derive a "moving" flag for the
+// walk-cycle animation, without touching gameplay/entities.js state.
+const _lastRenderPos = new WeakMap();
+function isEntityMoving(entity, x, y) {
+  const prev = _lastRenderPos.get(entity);
+  _lastRenderPos.set(entity, { x, y });
+  if (!prev) return false;
+  return Math.hypot(x - prev.x, y - prev.y) > 0.02;
+}
+
 function getViewportSize() {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -477,12 +487,22 @@ function drawEntities() {
   const list = [...enemies.filter(e => !e.isDead()), player, merchant, nunMerchant];
   list.sort((a,b) => (a.x+a.y) - (b.x+b.y));
 
+  // Culling de viewport: evita o custo (pesado) da pixelização offscreen para
+  // inimigos fora da tela — essencial com até 34 inimigos simultâneos no mapa.
+  const cullMargin = 140;
+  const viewW = canvas.width / (window.devicePixelRatio || 1);
+  const viewH = canvas.height / (window.devicePixelRatio || 1);
+
   for (const entity of list) {
     try {
       if (entity === player) drawPlayer(entity);
       else if (entity === merchant) drawMerchant(entity);
       else if (entity === nunMerchant) drawNunMerchant(entity);
-      else drawEnemy(entity);
+      else {
+        const sPos = Camera.worldToScreen(entity.x, entity.y);
+        if (sPos.x < -cullMargin || sPos.x > viewW + cullMargin || sPos.y < -cullMargin || sPos.y > viewH + cullMargin) continue;
+        drawEnemy(entity);
+      }
     } catch (error) {
       console.warn("[render] entidade recuperada após erro", error);
       if (entity && entity !== player && entity !== merchant && entity !== nunMerchant) {
@@ -585,10 +605,69 @@ function drawMerchant(m) {
   }
 }
 
-function drawArm(x, y, dir, side, opts = {}) {
+// --- Pixel-art shading helpers -------------------------------------------------
+// Keep the existing color palette intact; these only derive lighter/darker tones
+// from a base hex color to fake 16-bit-style shading (highlight/shadow bands +
+// dark outline) without introducing any new hues.
+function shadeHex(hex, amount) {
+  const num = parseInt(hex.replace("#", ""), 16);
+  let r = (num >> 16) & 0xff, g = (num >> 8) & 0xff, b = num & 0xff;
+  const d = Math.round(255 * amount);
+  r = Math.max(0, Math.min(255, r + d));
+  g = Math.max(0, Math.min(255, g + d));
+  b = Math.max(0, Math.min(255, b + d));
+  return `rgb(${r},${g},${b})`;
+}
+
+function pixelBlock(g, x, y, w, h, color, opts = {}) {
+  const light = shadeHex(color, opts.light ?? 0.2);
+  const dark = shadeHex(color, opts.dark ?? -0.24);
+  g.fillStyle = color;
+  g.fillRect(x, y, w, h);
+  const band = Math.max(1, Math.round(h * 0.22));
+  g.fillStyle = light;
+  g.fillRect(x, y, w, band);
+  g.fillStyle = dark;
+  g.fillRect(x, y + h - band, w, band);
+  if (opts.outline !== false) {
+    // Contorno grosso e quase preto (estilo "Otherworld Legends"): precisa de
+    // pelo menos ~3px no canvas em tamanho real para sobreviver ao downsample
+    // nearest-neighbor que gera o efeito pixel art chapado.
+    g.strokeStyle = opts.outlineColor || "#120b08";
+    g.lineWidth = opts.outlineWidth ?? 3;
+    g.strokeRect(Math.round(x), Math.round(y), w, h);
+  }
+}
+
+// --- Offscreen pixelation rig ---------------------------------------------------
+// The full-detail body is painted onto an isolated, transparent canvas, then
+// downsampled and upscaled with nearest-neighbor sampling to fake a chunky
+// 8/16-bit retro sprite look (matching the Freira/Merchant art), without
+// smearing the floor tiles drawn behind the character.
+const CHAR_CANVAS_SIZE = 140;
+const CHAR_CANVAS_ORIGIN = 70;
+const CHAR_PIXEL_BLOCK = 3;
+const CHAR_SMALL_SIZE = Math.ceil(CHAR_CANVAS_SIZE / CHAR_PIXEL_BLOCK);
+const _charFullCanvas = document.createElement("canvas");
+_charFullCanvas.width = CHAR_CANVAS_SIZE;
+_charFullCanvas.height = CHAR_CANVAS_SIZE;
+const _charFullCtx = _charFullCanvas.getContext("2d");
+const _charSmallCanvas = document.createElement("canvas");
+_charSmallCanvas.width = CHAR_SMALL_SIZE;
+_charSmallCanvas.height = CHAR_SMALL_SIZE;
+const _charSmallCtx = _charSmallCanvas.getContext("2d");
+_charSmallCtx.imageSmoothingEnabled = false;
+
+function drawArm(g, x, y, dir, side, opts = {}) {
   const now = performance.now();
-  const swing = opts.attacking ? Math.sin(now / 90 + side * 0.8) * 0.18 : 0;
-  const armColor = opts.enemy ? "#8f4841" : (opts.skin ? "#c08a5c" : "#d7e2f5");
+  const phase = opts.phase || null;
+  let swing;
+  if (phase === "windup") swing = -0.5;
+  else if (phase === "strike") swing = 0.55;
+  else if (opts.casting) swing = -1.15;
+  else if (opts.attacking) swing = Math.sin(now / 90 + side * 0.8) * 0.18;
+  else swing = Math.sin(now / 260 + side * Math.PI) * (opts.moving ? 0.14 : 0.02);
+  const baseColor = opts.enemy ? (opts.boss ? "#5a2a2a" : "#8f4841") : (opts.skin ? "#c08a5c" : "#d7e2f5");
   const vectors = {
     up: { x: 0, y: -1 }, upRight: { x: 0.7, y: -0.7 },
     right: { x: 1, y: 0 }, downRight: { x: 0.7, y: 0.7 },
@@ -599,17 +678,49 @@ function drawArm(x, y, dir, side, opts = {}) {
   const sideOffset = side === 0 ? -5 : 5;
   const ax = x - v.y * sideOffset;
   const ay = y + v.x * sideOffset - 4;
-  const armLength = 12;
-  const ex = ax + (v.x * Math.cos(swing) - v.y * Math.sin(swing)) * armLength;
-  const ey = ay + (v.x * Math.sin(swing) + v.y * Math.cos(swing)) * armLength;
+  const armLength = opts.casting ? 15 : 12;
+  const rvx = v.x * Math.cos(swing) - v.y * Math.sin(swing);
+  const rvy = v.x * Math.sin(swing) + v.y * Math.cos(swing);
+  const ex = ax + rvx * armLength;
+  const ey = ay + rvy * armLength;
+  const mx = (ax + ex) / 2 + (ay - ey) * 0.08;
+  const my = (ay + ey) / 2 + (ex - ax) * 0.08;
 
-  ctx.strokeStyle = armColor;
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(ax, ay);
-  ctx.lineTo(ex, ey);
-  ctx.stroke();
+  // Outline/shadow pass (slightly wider, darker) for a crisper pixel-art silhouette.
+  g.strokeStyle = "#120b08";
+  g.lineWidth = 5.8;
+  g.lineCap = "round";
+  g.beginPath();
+  g.moveTo(ax, ay);
+  g.quadraticCurveTo(mx, my, ex, ey);
+  g.stroke();
+
+  // Base limb.
+  g.strokeStyle = baseColor;
+  g.lineWidth = 4;
+  g.lineCap = "round";
+  g.beginPath();
+  g.moveTo(ax, ay);
+  g.quadraticCurveTo(mx, my, ex, ey);
+  g.stroke();
+
+  // Highlight sliver on the upper edge of the limb.
+  g.strokeStyle = shadeHex(baseColor, 0.22);
+  g.lineWidth = 1.3;
+  g.lineCap = "round";
+  g.beginPath();
+  g.moveTo(ax - v.y * 0.8, ay + v.x * 0.8);
+  g.quadraticCurveTo(mx - v.y * 0.8, my + v.x * 0.8, ex - v.y * 0.8, ey + v.x * 0.8);
+  g.stroke();
+
+  // Hand/fist blob.
+  g.fillStyle = baseColor;
+  g.beginPath(); g.arc(ex, ey, 2.7, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = "#120b08";
+  g.lineWidth = 1.6;
+  g.beginPath(); g.arc(ex, ey, 2.7, 0, Math.PI * 2); g.stroke();
+
+  return { ex, ey, dx: rvx, dy: rvy };
 }
 
 function drawCharacterBody(x, y, dir, baseScale, opts = {}) {
@@ -619,198 +730,436 @@ function drawCharacterBody(x, y, dir, baseScale, opts = {}) {
   const defending = opts.defending;
   const attacking = opts.attacking;
   const running = opts.running;
+  const moving = !!(opts.moving || running);
   const blunderbuss = !!opts.blunderbuss;
   const corpusCustodia = !!opts.corpusCustodia;
+  const casting = !!opts.casting;
   const clothing = opts.clothing || {};
+  const now = performance.now();
+  const isPlain = !opts.enemy && !opts.boss && !opts.archer;
+  const walkT = now / 150;
+  const bob = moving ? Math.sin(walkT) : 0;
 
-  ctx.save();
-  ctx.translate(s.x, s.y - 12 * scale);
-  ctx.scale(scale, scale);
+  // Render the full-detail vector body into an isolated, transparent offscreen
+  // canvas, then downsample+upsample it (nearest-neighbor) to fake a chunky
+  // 8/16-bit retro sprite look (matching the Freira/Merchant art) without
+  // smearing the floor tiles drawn behind the character.
+  const g = _charFullCtx;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, CHAR_CANVAS_SIZE, CHAR_CANVAS_SIZE);
+  g.save();
+  g.translate(CHAR_CANVAS_ORIGIN, CHAR_CANVAS_ORIGIN);
 
-  if (running && baseScale === 1.0) {
-    ctx.fillStyle = "rgba(255,200,100,.15)";
-    ctx.beginPath();
-    ctx.ellipse(0, 18, 30, 15, 0, 0, Math.PI * 2);
-    ctx.fill();
+  // Hit-react stagger: a brief jitter/tilt while the hit flash is active
+  // (covers both "inimigo acerta o player" and "player acerta inimigo").
+  if (flash) g.rotate(Math.sin(now / 18) * 0.06);
+
+  // Lunge dramático (estilo "Otherworld Legends"): o corpo todo avança um
+  // pouco na direção do golpe durante a fase de "strike", vendendo o impacto.
+  const facing = (typeof directionVector === "function" ? directionVector(dir) : null) || { x: 0, y: 0 };
+  if (attacking && opts.phase === "strike" && !blunderbuss && !corpusCustodia) {
+    g.translate(facing.x * 5, facing.y * 5);
   }
 
-  if (flash) ctx.globalAlpha = 0.48 + 0.5 * Math.abs(Math.sin(performance.now() / 45));
+  // Linhas de velocidade atrás do personagem no golpe: reforçam a sensação
+  // de movimento rápido típica do pixel art de ação de referência.
+  if (attacking && opts.phase === "strike") {
+    g.save();
+    g.globalAlpha = 0.5;
+    g.strokeStyle = "#f3f0e6";
+    g.lineCap = "round";
+    for (let i = 0; i < 3; i++) {
+      const back = (16 + i * 9.6);
+      const spread = (i - 1) * 4.5;
+      g.lineWidth = 2 - i * 0.4;
+      g.beginPath();
+      g.moveTo(-facing.x * back - facing.y * spread, -facing.y * back + facing.x * spread);
+      g.lineTo(-facing.x * (back + 6) - facing.y * spread, -facing.y * (back + 6) + facing.x * spread);
+      g.stroke();
+    }
+    g.restore();
+  }
 
-  ctx.globalAlpha *= 0.55;
-  ctx.fillStyle = "#111";
-  ctx.beginPath();
-  ctx.ellipse(0, 18, 18, 7, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
+  if (running && !opts.enemy) {
+    g.fillStyle = "rgba(255,200,100,.15)";
+    g.beginPath();
+    g.ellipse(0, 18, 30, 15, 0, 0, Math.PI * 2);
+    g.fill();
+  }
 
-  ctx.fillStyle = "#1a1a22";
-  ctx.fillRect(-9, 3, 7, 17);
-  ctx.fillRect(2, 3, 7, 17);
-  ctx.fillStyle = "#5a3119";
-  ctx.fillRect(-9, 15, 7, 5);
-  ctx.fillRect(2, 15, 7, 5);
+  if (flash) g.globalAlpha = 0.48 + 0.5 * Math.abs(Math.sin(now / 45));
 
-  const shirtBase = opts.boss ? "#111214" : (opts.archer ? "#542b72" : (opts.enemy ? "#6f2f2f" : (clothing.shirtColor || "#1c2835")));
-  const shirtDetail = opts.boss ? "#050506" : (opts.archer ? "#75409a" : (opts.enemy ? "#a14c3d" : (clothing.shirtDetail || "#344c63")));
-  ctx.fillStyle = shirtBase;
-  ctx.fillRect(-13, -12, 26, 23);
-  ctx.fillStyle = shirtDetail;
-  ctx.fillRect(-9, -8, 18, 15);
+  // Idle breathing: a faint vertical scale pulse on the whole silhouette when still.
+  const breathe = moving ? 0 : Math.sin(now / 520) * 0.012;
+  g.save();
+  g.scale(1, 1 + breathe);
+
+  g.globalAlpha *= 0.55;
+  g.fillStyle = "#111";
+  g.beginPath();
+  g.ellipse(0, 18, 18, 7, 0, 0, Math.PI * 2);
+  g.fill();
+  g.globalAlpha = flash ? (0.48 + 0.5 * Math.abs(Math.sin(now / 45))) : 1;
+
+  // --- Legs (thigh + calf segments for real anatomy, walk-cycle bob per leg) ----
+  const pantsColor = "#1a1a22";
+  const bootColor = "#5a3119";
+  const legLift = moving ? Math.sin(walkT) * 2.2 : 0;
+  const legLift2 = moving ? Math.sin(walkT + Math.PI) * 2.2 : 0;
+  const kneeBend = moving ? Math.max(0, Math.sin(walkT)) * 2 : 0;
+  const kneeBend2 = moving ? Math.max(0, Math.sin(walkT + Math.PI)) * 2 : 0;
+  // Coxa (mais larga) + canela (mais estreita), com leve flexão no joelho ao andar.
+  pixelBlock(g, -10, 2 + Math.max(0, -legLift), 8, 9, pantsColor, { light: 0.16, dark: -0.18 });
+  pixelBlock(g, 2, 2 + Math.max(0, -legLift2), 8, 9, pantsColor, { light: 0.16, dark: -0.18 });
+  pixelBlock(g, -9 + kneeBend * 0.3, 10 + Math.max(0, -legLift), 6, 9 - Math.max(0, -legLift), shadeHex(pantsColor, -0.08), { light: 0.12, dark: -0.22 });
+  pixelBlock(g, 3 - kneeBend2 * 0.3, 10 + Math.max(0, -legLift2), 6, 9 - Math.max(0, -legLift2), shadeHex(pantsColor, -0.08), { light: 0.12, dark: -0.22 });
+  pixelBlock(g, -9 + kneeBend * 0.3, 15 + Math.max(0, -legLift), 6, 5, bootColor, { light: 0.2, dark: -0.26 });
+  pixelBlock(g, 3 - kneeBend2 * 0.3, 15 + Math.max(0, -legLift2), 6, 5, bootColor, { light: 0.2, dark: -0.26 });
+  // Belt line at the waist, sitting just above the pants.
+  g.fillStyle = shadeHex(pantsColor, -0.1);
+  g.fillRect(-11, 1, 22, 2);
+  g.fillStyle = "#7a6232";
+  g.fillRect(-2, 0, 4, 3);
+
+  // --- Torso: afunilado dos ombros até a cintura (anatomia real, não um bloco reto) --
+  const shirtBase = opts.boss ? "#2a1418" : (opts.archer ? "#542b72" : (opts.enemy ? "#6f2f2f" : (clothing.shirtColor || "#1c2835")));
+  const shirtDetail = opts.boss ? "#140a0c" : (opts.archer ? "#75409a" : (opts.enemy ? "#a14c3d" : (clothing.shirtDetail || "#344c63")));
+  const chestBreathe = moving ? 0 : Math.abs(Math.sin(now / 520)) * 0.6;
+  g.beginPath();
+  g.moveTo(-14 - chestBreathe, -13); g.lineTo(14 + chestBreathe, -13);
+  g.lineTo(11, -2); g.lineTo(9, 7);
+  g.lineTo(-9, 7); g.lineTo(-11, -2);
+  g.closePath();
+  g.fillStyle = shirtBase; g.fill();
+  g.fillStyle = shadeHex(shirtBase, 0.2);
+  g.beginPath(); g.moveTo(-14 - chestBreathe, -13); g.lineTo(14 + chestBreathe, -13); g.lineTo(12, -8); g.lineTo(-12, -8); g.closePath(); g.fill();
+  g.fillStyle = shadeHex(shirtBase, -0.26);
+  g.beginPath(); g.moveTo(-10, 0); g.lineTo(10, 0); g.lineTo(9, 7); g.lineTo(-9, 7); g.closePath(); g.fill();
+  g.strokeStyle = "#120b08"; g.lineWidth = 2.4;
+  g.beginPath();
+  g.moveTo(-14 - chestBreathe, -13); g.lineTo(14 + chestBreathe, -13);
+  g.lineTo(11, -2); g.lineTo(9, 7);
+  g.lineTo(-9, 7); g.lineTo(-11, -2);
+  g.closePath(); g.stroke();
+  // Painel central (peitoral) com sombreamento lateral para dar volume ao tronco.
+  pixelBlock(g, -8, -9, 16, 15, shirtDetail, { light: 0.2, dark: -0.22, outlineWidth: 1.6 });
+  // Pescoço conectando cabeça e tronco (evita o "gap" entre os dois blocos).
+  g.fillStyle = shadeHex(opts.enemy ? (opts.boss ? "#7a5a52" : "#8c6356") : "#a9703f", -0.1);
+  g.fillRect(-3, -15, 6, 5);
+  // Costura central + colarinho.
+  g.fillStyle = shadeHex(shirtBase, -0.32);
+  g.beginPath();
+  g.moveTo(-3, -13); g.lineTo(0, -9); g.lineTo(3, -13); g.closePath(); g.fill();
+  g.strokeStyle = shadeHex(shirtDetail, -0.25);
+  g.lineWidth = 0.8;
+  g.beginPath(); g.moveTo(0, -9); g.lineTo(0, 6); g.stroke();
+
+  if (opts.boss) {
+    // Armored shoulder pads for the boss silhouette.
+    g.fillStyle = "#3a3d42";
+    g.beginPath(); g.moveTo(-15, -11); g.lineTo(-7, -14); g.lineTo(-9, -4); g.lineTo(-16, -3); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(15, -11); g.lineTo(7, -14); g.lineTo(9, -4); g.lineTo(16, -3); g.closePath(); g.fill();
+    g.strokeStyle = "#1a1c1f"; g.lineWidth = 1;
+    g.strokeRect(-16, -14, 9, 11); g.strokeRect(7, -14, 9, 11);
+  } else if (opts.archer) {
+    // Leather chest strap for a quiver-carrying silhouette.
+    g.strokeStyle = "#4a2f1c"; g.lineWidth = 2.2;
+    g.beginPath(); g.moveTo(-11, -12); g.lineTo(9, 10); g.stroke();
+  } else if (opts.enemy) {
+    // Tattered hem on common enemies.
+    g.fillStyle = shadeHex(shirtBase, -0.3);
+    for (let i = -1; i <= 1; i++) {
+      g.beginPath(); g.moveTo(i * 7 - 3, 10); g.lineTo(i * 7, 15); g.lineTo(i * 7 + 3, 10); g.closePath(); g.fill();
+    }
+  }
 
   if (flash) {
-    ctx.globalAlpha = 0.42 + 0.45 * Math.abs(Math.sin(performance.now() / 45));
-    ctx.fillStyle = "#ff2020";
-    ctx.fillRect(-15, -14, 30, 29);
-    ctx.globalAlpha = 1;
+    g.globalAlpha = 0.42 + 0.45 * Math.abs(Math.sin(now / 45));
+    g.fillStyle = "#ff2020";
+    g.fillRect(-15, -14, 30, 29);
+    g.globalAlpha = 1;
   }
 
-  drawArm(0, -4, dir, 0, { attacking, enemy: !!opts.enemy, skin: !opts.enemy && !opts.boss && !opts.archer });
-  drawArm(0, -4, dir, 1, { attacking, enemy: !!opts.enemy, skin: !opts.enemy && !opts.boss && !opts.archer });
+  if (casting) {
+    const pulse = 0.4 + 0.3 * Math.sin(now / 70);
+    g.save();
+    g.shadowColor = "#ffd37a"; g.shadowBlur = 14;
+    g.strokeStyle = `rgba(255,214,120,${pulse})`;
+    g.lineWidth = 2;
+    g.beginPath(); g.arc(0, -8, 22, 0, Math.PI * 2); g.stroke();
+    g.restore();
+  }
 
-  ctx.fillStyle = "#a9703f";
-  ctx.beginPath();
-  ctx.arc(0, -18, 10, 0, Math.PI * 2);
-  ctx.fill();
+  // Boss aura: a constant pulsing dark-red ring that flares into a "roar"
+  // shockwave while the boss winds up its attack.
+  if (opts.boss) {
+    const roar = opts.phase === "windup";
+    const auraPulse = (roar ? 0.55 : 0.22) + Math.sin(now / (roar ? 55 : 160)) * (roar ? 0.3 : 0.1);
+    g.save();
+    g.shadowColor = "#ff3b1f"; g.shadowBlur = roar ? 20 : 8;
+    g.strokeStyle = `rgba(255,70,40,${Math.max(0, auraPulse)})`;
+    g.lineWidth = roar ? 4 : 2;
+    g.beginPath(); g.arc(0, -6, roar ? 30 + Math.sin(now / 40) * 4 : 26, 0, Math.PI * 2); g.stroke();
+    g.restore();
+  }
 
-  const hat = clothing.hat || "none";
-  if (hat === "straw" || hat === "none") {
-    ctx.fillStyle = "#6c4327";
-    ctx.beginPath(); ctx.ellipse(0, -25, 24, 8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#c9a05c";
-    ctx.beginPath(); ctx.ellipse(0, -27, 23, 7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#a87940";
-    ctx.beginPath(); ctx.moveTo(-11, -27); ctx.lineTo(0, -40); ctx.lineTo(11, -27); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = "#6e5736"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8,-29); ctx.lineTo(8,-29); ctx.stroke();
-  } else if (hat === "kasa") {
-    ctx.fillStyle = "#6b675b";
-    ctx.beginPath(); ctx.ellipse(0, -27, 25, 7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(-8,-27); ctx.quadraticCurveTo(-5,-43,0,-47); ctx.quadraticCurveTo(6,-43,9,-27); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = "#34332f"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,-27,16,0,Math.PI); ctx.stroke();
-  } else if (hat === "warrior") {
-    ctx.fillStyle = "#3d4148";
-    ctx.beginPath(); ctx.ellipse(0, -27, 22, 6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(-9,-27); ctx.lineTo(0,-40); ctx.lineTo(10,-27); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = "#aeb5bd"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0,-40); ctx.lineTo(0,-25); ctx.stroke();
-  } else if (hat === "samurai") {
-    ctx.fillStyle = "#25272b";
-    ctx.beginPath(); ctx.ellipse(0, -29, 24, 7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#17191d";
-    ctx.beginPath(); ctx.moveTo(-12,-28); ctx.quadraticCurveTo(-8,-46,0,-50); ctx.quadraticCurveTo(8,-46,12,-28); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = "#c4a45a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-18,-29); ctx.lineTo(18,-29); ctx.stroke();
-    ctx.fillStyle = "#b42e2e"; ctx.fillRect(-2,-29,4,11);
-  } else if (hat === "ronin") {
-    ctx.fillStyle = "#4b4036";
-    ctx.beginPath(); ctx.ellipse(0, -28, 28, 8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#2c2724";
-    ctx.beginPath(); ctx.moveTo(-10,-28); ctx.quadraticCurveTo(-7,-43,0,-47); ctx.quadraticCurveTo(7,-43,10,-28); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = "#8d6b43"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,-28,19,Math.PI,Math.PI*2); ctx.stroke();
+  const armOpts = {
+    attacking, phase: opts.phase, casting, moving,
+    enemy: !!opts.enemy, boss: !!opts.boss, skin: isPlain
+  };
+  drawArm(g, 0, -4, dir, 0, armOpts);
+  const mainHand = drawArm(g, 0, -4, dir, 1, armOpts);
+
+  // --- Head --------------------------------------------------------------------
+  const skinColor = opts.enemy ? (opts.boss ? "#7a5a52" : "#8c6356") : "#a9703f";
+  g.beginPath();
+  g.fillStyle = shadeHex(skinColor, 0.2);
+  g.arc(-2.5, -20.5, 9, 0, Math.PI * 2); g.fill();
+  g.fillStyle = skinColor;
+  g.beginPath(); g.arc(0, -18, 10, 0, Math.PI * 2); g.fill();
+  g.fillStyle = shadeHex(skinColor, -0.26);
+  g.beginPath(); g.arc(3.5, -15.5, 7.5, -0.4, Math.PI * 0.9); g.fill();
+  g.strokeStyle = "#120b08"; g.lineWidth = 2.6;
+  g.beginPath(); g.arc(0, -18, 10, 0, Math.PI * 2); g.stroke();
+
+  // Simple directional face: eyes + brow, angrier/glowing for enemies.
+  const faceDX = dir === "left" ? -3 : dir === "right" ? 3 : 0;
+  const eyeColor = opts.boss ? "#ff5a3c" : opts.enemy ? "#ffb199" : "#2a2016";
+  if (dir !== "up") {
+    g.fillStyle = eyeColor;
+    if (opts.boss) { g.shadowColor = eyeColor; g.shadowBlur = 5; }
+    g.fillRect(faceDX - 3.2, -19, 1.6, 1.6);
+    g.fillRect(faceDX + 1.6, -19, 1.6, 1.6);
+    g.shadowBlur = 0;
+    if (opts.enemy) {
+      g.strokeStyle = eyeColor; g.lineWidth = 0.8;
+      g.beginPath(); g.moveTo(faceDX - 3.6, -20.4); g.lineTo(faceDX - 1.2, -19.6); g.stroke();
+      g.beginPath(); g.moveTo(faceDX + 1.2, -19.6); g.lineTo(faceDX + 3.6, -20.4); g.stroke();
+    }
+  }
+
+  // Hair / headgear: enemies get type-specific hair silhouettes instead of hats.
+  if (opts.enemy) {
+    if (opts.boss) {
+      g.fillStyle = "#1b1c1f";
+      g.beginPath(); g.moveTo(-9, -26); g.lineTo(-4, -34); g.lineTo(-1, -27); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(9, -26); g.lineTo(4, -34); g.lineTo(1, -27); g.closePath(); g.fill();
+      g.fillStyle = "#3a3d42";
+      g.beginPath(); g.ellipse(0, -26, 10, 5, 0, Math.PI, Math.PI * 2); g.fill();
+    } else if (opts.archer) {
+      g.fillStyle = "#3c2f55";
+      g.beginPath(); g.moveTo(-9, -22); g.quadraticCurveTo(-10, -34, 0, -32); g.quadraticCurveTo(10, -34, 9, -22);
+      g.quadraticCurveTo(5, -27, 0, -27); g.quadraticCurveTo(-5, -27, -9, -22); g.closePath(); g.fill();
+      g.strokeStyle = "#241d38"; g.lineWidth = 1; g.stroke();
+    } else {
+      g.fillStyle = "#2e2320";
+      g.beginPath(); g.ellipse(-2, -27, 7, 4.5, -0.3, Math.PI, Math.PI * 2.1); g.fill();
+      g.beginPath(); g.ellipse(4, -28, 4, 3, 0.4, Math.PI, Math.PI * 2); g.fill();
+    }
   } else {
-    ctx.fillStyle = "#c6a15a";
-    ctx.beginPath(); ctx.ellipse(0, -27, 22, 7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(-10, -27); ctx.lineTo(0, -38); ctx.lineTo(11, -27); ctx.closePath(); ctx.fill();
+    const hat = clothing.hat || "none";
+    if (hat === "straw" || hat === "none") {
+      g.fillStyle = "#6c4327";
+      g.beginPath(); g.ellipse(0, -25, 24, 8, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#c9a05c";
+      g.beginPath(); g.ellipse(0, -27, 23, 7, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = shadeHex("#c9a05c", 0.18);
+      g.beginPath(); g.ellipse(-6, -28.5, 13, 3, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#a87940";
+      g.beginPath(); g.moveTo(-11, -27); g.lineTo(0, -40); g.lineTo(11, -27); g.closePath(); g.fill();
+      g.strokeStyle = "#6e5736"; g.lineWidth = 2; g.beginPath(); g.moveTo(-8,-29); g.lineTo(8,-29); g.stroke();
+    } else if (hat === "kasa") {
+      g.fillStyle = "#6b675b";
+      g.beginPath(); g.ellipse(0, -27, 25, 7, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.moveTo(-8,-27); g.quadraticCurveTo(-5,-43,0,-47); g.quadraticCurveTo(6,-43,9,-27); g.closePath(); g.fill();
+      g.strokeStyle = "#34332f"; g.lineWidth = 2; g.beginPath(); g.arc(0,-27,16,0,Math.PI); g.stroke();
+    } else if (hat === "warrior") {
+      g.fillStyle = "#3d4148";
+      g.beginPath(); g.ellipse(0, -27, 22, 6, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.moveTo(-9,-27); g.lineTo(0,-40); g.lineTo(10,-27); g.closePath(); g.fill();
+      g.strokeStyle = "#aeb5bd"; g.lineWidth = 2; g.beginPath(); g.moveTo(0,-40); g.lineTo(0,-25); g.stroke();
+    } else if (hat === "samurai") {
+      g.fillStyle = "#25272b";
+      g.beginPath(); g.ellipse(0, -29, 24, 7, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#17191d";
+      g.beginPath(); g.moveTo(-12,-28); g.quadraticCurveTo(-8,-46,0,-50); g.quadraticCurveTo(8,-46,12,-28); g.closePath(); g.fill();
+      g.strokeStyle = "#c4a45a"; g.lineWidth = 2; g.beginPath(); g.moveTo(-18,-29); g.lineTo(18,-29); g.stroke();
+      g.fillStyle = "#b42e2e"; g.fillRect(-2,-29,4,11);
+    } else if (hat === "ronin") {
+      g.fillStyle = "#4b4036";
+      g.beginPath(); g.ellipse(0, -28, 28, 8, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#2c2724";
+      g.beginPath(); g.moveTo(-10,-28); g.quadraticCurveTo(-7,-43,0,-47); g.quadraticCurveTo(7,-43,10,-28); g.closePath(); g.fill();
+      g.strokeStyle = "#8d6b43"; g.lineWidth = 2; g.beginPath(); g.arc(0,-28,19,Math.PI,Math.PI*2); g.stroke();
+    } else {
+      g.fillStyle = "#c6a15a";
+      g.beginPath(); g.ellipse(0, -27, 22, 7, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.moveTo(-10, -27); g.lineTo(0, -38); g.lineTo(11, -27); g.closePath(); g.fill();
+    }
   }
 
-  ctx.fillStyle = "#111";
-  if (dir === "left") ctx.fillRect(-11, -20, 4, 3);
-  else if (dir === "right") ctx.fillRect(7, -20, 4, 3);
-  else if (dir === "up") ctx.fillRect(-3, -25, 6, 3);
-  else ctx.fillRect(-3, -15, 6, 3);
-
-  if (blunderbuss) {
+  if (opts.enemy) {
+    if (opts.archer) {
+      // Bow: a wooden arc + taut string, pulled back further and brighter during windup/strike.
+      const drawn = opts.phase === "windup" || opts.phase === "strike";
+      const pull = opts.phase === "strike" ? 10 : drawn ? 6 : 2;
+      const bowAngle = ({up:-Math.PI/2, upRight:-Math.PI/4, right:0, downRight:Math.PI/4, down:Math.PI/2, downLeft:3*Math.PI/4, left:Math.PI, upLeft:-3*Math.PI/4})[dir] ?? 0;
+      g.save();
+      g.translate(mainHand.ex, mainHand.ey);
+      g.rotate(bowAngle);
+      g.strokeStyle = "#6b4a28"; g.lineWidth = 2;
+      g.beginPath(); g.arc(0, 0, 9, -1.1, 1.1); g.stroke();
+      g.strokeStyle = drawn ? "#e8e0c8" : "#cfc49f"; g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(Math.cos(-1.1) * 9, Math.sin(-1.1) * 9);
+      g.lineTo(-pull, 0);
+      g.lineTo(Math.cos(1.1) * 9, Math.sin(1.1) * 9);
+      g.stroke();
+      if (drawn) {
+        g.strokeStyle = opts.phase === "strike" ? "#ffdf8a" : "#e8c468";
+        g.lineWidth = 1.4;
+        g.beginPath(); g.moveTo(-pull, 0); g.lineTo(9, 0); g.stroke();
+      }
+      g.restore();
+    } else {
+      // Simple claw/weapon swipe tied to the swinging hand for common enemies and bosses.
+      const weaponColor = opts.boss ? "#8a8f96" : "#9a9088";
+      const reach = opts.boss ? 14 : 9;
+      g.strokeStyle = weaponColor; g.lineWidth = opts.boss ? 3.5 : 2.4; g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(mainHand.ex, mainHand.ey);
+      g.lineTo(mainHand.ex + mainHand.dx * reach, mainHand.ey + mainHand.dy * reach);
+      g.stroke();
+    }
+  } else if (blunderbuss) {
     // Arma de fogo visualmente distinta da espada: coronha escura + cano metálico largo.
-    const side = dir === "left" ? -1 : 1;
+    // Recuo (kickback) no disparo: a arma salta para trás no "strike" e volta suave.
     const angle = ({up:-Math.PI/2, upRight:-Math.PI/4, right:0, downRight:Math.PI/4, down:Math.PI/2, downLeft:3*Math.PI/4, left:Math.PI, upLeft:-3*Math.PI/4})[dir] ?? 0;
-    ctx.save();
-    ctx.rotate(angle);
-    ctx.fillStyle = "#5b351d";
-    ctx.fillRect(5, -3, 19, 6);
-    ctx.fillStyle = "#25282c";
-    ctx.fillRect(18, -4, 15, 8);
-    ctx.fillStyle = "#8b6a3c";
-    ctx.fillRect(3, -2, 7, 4);
-    ctx.strokeStyle = "#b7b9b9";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(29, -5, 7, 10);
-    ctx.restore();
+    const kick = attacking && opts.phase === "strike" ? -5 : attacking && opts.phase === "windup" ? 1.5 : 0;
+    g.save();
+    g.rotate(angle);
+    g.translate(kick, 0);
+    g.fillStyle = "#5b351d";
+    g.fillRect(5, -3, 19, 6);
+    g.fillStyle = shadeHex("#5b351d", -0.3);
+    g.fillRect(5, 1, 19, 2);
+    g.fillStyle = "#25282c";
+    g.fillRect(18, -4, 15, 8);
+    g.fillStyle = shadeHex("#25282c", 0.25);
+    g.fillRect(18, -4, 15, 2);
+    g.fillStyle = "#8b6a3c";
+    g.fillRect(3, -2, 7, 4);
+    g.strokeStyle = "#b7b9b9";
+    g.lineWidth = 2;
+    g.strokeRect(29, -5, 7, 10);
+    g.restore();
   } else if (corpusCustodia) {
+    // Item usável de combate corpo-a-corpo: segue a mesma lógica de "lunge" da
+    // espada (recua no windup, avança no strike) para vender o golpe do item.
     const angle = ({up:-Math.PI/2, upRight:-Math.PI/4, right:0, downRight:Math.PI/4, down:Math.PI/2, downLeft:3*Math.PI/4, left:Math.PI, upLeft:-3*Math.PI/4})[dir] ?? 0;
-    ctx.save();
-    ctx.rotate(angle);
-    ctx.fillStyle = "#ead9ad";
-    ctx.strokeStyle = "#8b6742";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(8, -6, 18, 12, 3);
-    ctx.fill();
-    ctx.stroke();
-    ctx.strokeStyle = "#8b6742";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(12, -2); ctx.lineTo(22, -2);
-    ctx.moveTo(13, 2); ctx.lineTo(21, 2);
-    ctx.stroke();
-    ctx.restore();
+    const thrust = attacking && opts.phase === "strike" ? 6 : attacking && opts.phase === "windup" ? -3 : 0;
+    g.save();
+    g.rotate(angle);
+    g.translate(thrust, 0);
+    g.fillStyle = "#ead9ad";
+    g.strokeStyle = "#8b6742";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.roundRect(8, -6, 18, 12, 3);
+    g.fill();
+    g.stroke();
+    g.strokeStyle = "#8b6742";
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(12, -2); g.lineTo(22, -2);
+    g.moveTo(13, 2); g.lineTo(21, 2);
+    g.stroke();
+    g.restore();
   } else {
-    // Espada equipada: a cor e os efeitos seguem o caminho elemental da árvore.
+    // Espada/bainha equipada: a cor e os efeitos seguem o caminho elemental da árvore.
+    // A lâmina agora acompanha a mão (drawArm) para uma animação real de golpe.
     const fireStage = typeof getSwordElementStage === "function" ? getSwordElementStage("fire") : 0;
     const lightningStage = typeof getSwordElementStage === "function" ? getSwordElementStage("lightning") : 0;
     const activeElement = weaponMode === "sheath" ? "sheath" : (fireStage > 0 ? "fire" : lightningStage > 0 ? "lightning" : "normal");
     const swordColors = { normal: "#cfd7df", sheath: "#7a4b25", fire: "#d83a32", lightning: "#54a9ff" };
     const bladeColor = swordColors[activeElement];
-    const sx = dir === "left" ? -10 : dir === "right" ? 10 : 7;
-    const ex = dir === "left" ? -23 : dir === "right" ? 23 : 7;
-    const ey = dir === "up" ? -20 : dir === "down" ? 20 : 0;
-    ctx.strokeStyle = bladeColor;
-    ctx.lineWidth = activeElement === "sheath" ? 4 : 3;
-    ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(ex, ey); ctx.stroke();
-    ctx.strokeStyle = activeElement === "sheath" ? "#4d2c18" : "#6f4a2a";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(sx - 2, 1); ctx.lineTo(sx + 3, 1); ctx.stroke();
+    const hx = mainHand.ex, hy = mainHand.ey;
+    let bx, by;
+    if (attacking) {
+      const swingLen = (activeElement === "sheath" ? 20 : 17) * (opts.phase === "strike" ? 1.3 : 0.75);
+      bx = hx + mainHand.dx * swingLen;
+      by = hy + mainHand.dy * swingLen;
+    } else {
+      bx = dir === "left" ? hx - 13 : dir === "right" ? hx + 13 : hx;
+      by = dir === "up" ? hy - 13 : dir === "down" ? hy + 13 : hy;
+    }
+    g.strokeStyle = bladeColor;
+    g.lineWidth = activeElement === "sheath" ? 4 : 3;
+    g.lineCap = "round";
+    g.beginPath(); g.moveTo(hx, hy); g.lineTo(bx, by); g.stroke();
+    g.strokeStyle = activeElement === "sheath" ? "#4d2c18" : "#6f4a2a";
+    g.lineWidth = 2;
+    g.beginPath(); g.moveTo(hx - 2, hy + 1); g.lineTo(hx + 3, hy + 1); g.stroke();
 
     if (activeElement === "fire" && fireStage >= 2) {
-      const pulse = 0.55 + Math.sin(performance.now() / 80) * 0.2;
-      ctx.save();
-      ctx.strokeStyle = `rgba(255,80,25,${pulse})`; ctx.lineWidth = 3; ctx.shadowColor = "#ff3b1f"; ctx.shadowBlur = 9;
-      ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(ex, ey); ctx.stroke();
+      const pulse = 0.55 + Math.sin(now / 80) * 0.2;
+      g.save();
+      g.strokeStyle = `rgba(255,80,25,${pulse})`; g.lineWidth = 3; g.shadowColor = "#ff3b1f"; g.shadowBlur = 9;
+      g.beginPath(); g.moveTo(hx, hy); g.lineTo(bx, by); g.stroke();
       for (let i=0;i<3;i++) {
-        const fx = sx + (ex-sx)*(i/3) + Math.sin(performance.now()/70+i)*2;
-        const fy = (ey)*(i/3) - Math.abs(Math.sin(performance.now()/90+i))*5;
-        ctx.fillStyle = `rgba(255,150,35,${pulse})`; ctx.beginPath(); ctx.arc(fx,fy,1.8,0,Math.PI*2); ctx.fill();
+        const fx = hx + (bx-hx)*(i/3) + Math.sin(now/70+i)*2;
+        const fy = hy + (by-hy)*(i/3) - Math.abs(Math.sin(now/90+i))*5;
+        g.fillStyle = `rgba(255,150,35,${pulse})`; g.beginPath(); g.arc(fx,fy,1.8,0,Math.PI*2); g.fill();
       }
-      ctx.restore();
+      g.restore();
     } else if (activeElement === "lightning" && lightningStage >= 2) {
-      ctx.save();
-      ctx.strokeStyle = "rgba(90,190,255,.95)"; ctx.lineWidth = 2; ctx.shadowColor = "#45b7ff"; ctx.shadowBlur = 10;
-      ctx.beginPath(); ctx.moveTo(sx,0);
-      const mx = sx + (ex-sx)*0.5 + Math.sin(performance.now()/75)*3;
-      const my = ey*0.5 + Math.cos(performance.now()/90)*3;
-      ctx.lineTo(mx,my); ctx.lineTo(ex,ey); ctx.stroke();
+      g.save();
+      g.strokeStyle = "rgba(90,190,255,.95)"; g.lineWidth = 2; g.shadowColor = "#45b7ff"; g.shadowBlur = 10;
+      g.beginPath(); g.moveTo(hx,hy);
+      const mx2 = hx + (bx-hx)*0.5 + Math.sin(now/75)*3;
+      const my2 = hy + (by-hy)*0.5 + Math.cos(now/90)*3;
+      g.lineTo(mx2,my2); g.lineTo(bx,by); g.stroke();
       for (let i=0;i<2;i++) {
-        ctx.fillStyle = "rgba(150,230,255,.95)"; ctx.beginPath(); ctx.arc(ex + Math.sin(performance.now()/65+i)*3, ey + Math.cos(performance.now()/80+i)*3, 1.6, 0, Math.PI*2); ctx.fill();
+        g.fillStyle = "rgba(150,230,255,.95)"; g.beginPath(); g.arc(bx + Math.sin(now/65+i)*3, by + Math.cos(now/80+i)*3, 1.6, 0, Math.PI*2); g.fill();
       }
-      ctx.restore();
+      g.restore();
     }
   }
 
   if (defending) {
-    ctx.strokeStyle = "#8dd7ff";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(0, -4, 25, 0, Math.PI * 2);
-    ctx.stroke();
+    g.strokeStyle = "#8dd7ff";
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(0, -4, 25, 0, Math.PI * 2);
+    g.stroke();
   }
 
   if (attacking) {
-    ctx.strokeStyle = opts.sheath ? "#d4c09a" : "#e8eef7";
-    ctx.lineWidth = 5;
-    ctx.beginPath();
+    g.strokeStyle = opts.sheath ? "#d4c09a" : "#e8eef7";
+    g.lineWidth = 5;
+    g.beginPath();
     const angleMap = {up:-Math.PI/2,down:Math.PI/2,left:Math.PI,right:0};
     const angle = angleMap[dir] || 0;
-    ctx.arc(0, -4, 28, angle - 0.75, angle + 0.75);
-    ctx.stroke();
+    g.arc(0, -4, 28, angle - 0.75, angle + 0.75);
+    g.stroke();
   }
 
+  g.restore(); // closes the breathe-scale save()
+  g.restore(); // closes the translate save()
+
+  // Downsample then upsample (nearest-neighbor) for the chunky retro pixel look.
+  _charSmallCtx.clearRect(0, 0, CHAR_SMALL_SIZE, CHAR_SMALL_SIZE);
+  _charSmallCtx.drawImage(_charFullCanvas, 0, 0, CHAR_SMALL_SIZE, CHAR_SMALL_SIZE);
+
+  const destSize = CHAR_CANVAS_SIZE * scale;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(
+    _charSmallCanvas,
+    s.x - CHAR_CANVAS_ORIGIN * scale,
+    (s.y - 12 * scale) - CHAR_CANVAS_ORIGIN * scale,
+    destSize, destSize
+  );
   ctx.restore();
 }
 
@@ -908,10 +1257,18 @@ function drawBurningEffect(x, y) {
 
 function drawPlayer(p) {
   drawAimRing(p);
-  drawCharacterBody(p.x, p.y, p.direction, 1.0, {
+  const nowP = performance.now();
+  const moving = isEntityMoving(p, p.x, p.y);
+  const casting = p.radiiDiviniCastUntil && p.radiiDiviniCastUntil > nowP;
+  const attackProgress = p.attack ? Math.min(1, Math.max(0, (nowP - p.attack.startedAt) / p.attack.duration)) : null;
+  const phase = attackProgress === null ? null : (attackProgress < 0.4 ? "windup" : "strike");
+  drawCharacterBody(p.x, p.y, p.direction, 1.32, {
     flash: p.hitFlashUntil > performance.now(),
     defending: p.isDefending(),
     attacking: !!p.attack,
+    phase,
+    casting,
+    moving,
     sheath: p.attack && p.attack.type === "sheath",
     blunderbuss: weaponMode === "blunderbuss",
     corpusCustodia: weaponMode === "corpusCustodia",
@@ -969,9 +1326,24 @@ function drawPlayer(p) {
     const s = Camera.worldToScreen(p.x, p.y);
     const d = directionVector(p.direction);
     const a = Math.atan2(d.y + d.x, d.x - d.y);
+    const nowFlash = performance.now();
+    const flashT = Math.max(0, Math.min(1, (p.blunderbussFlashUntil - nowFlash) / 180));
     ctx.save(); ctx.translate(s.x, s.y - 18); ctx.rotate(a);
-    ctx.fillStyle = "rgba(255,220,120,.9)";
+    ctx.fillStyle = `rgba(255,220,120,${0.55 + 0.4 * flashT})`;
     ctx.beginPath(); ctx.arc(28, 0, 12, 0, Math.PI * 2); ctx.fill();
+    // Rajada de fogo saindo do cano: labaredas crepitantes somadas ao clarão base.
+    ctx.shadowColor = "#ff5a1f"; ctx.shadowBlur = 10;
+    for (let i = 0; i < 6; i++) {
+      const fa = (i - 2.5) * 0.22;
+      const flen = (18 + i * 5) * (0.5 + flashT * 0.7);
+      ctx.strokeStyle = i % 2 ? `rgba(255,150,35,${0.85 * flashT})` : `rgba(255,220,120,${0.85 * flashT})`;
+      ctx.lineWidth = 3 - i * 0.3;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(22, 0);
+      ctx.lineTo(22 + Math.cos(fa) * flen, Math.sin(fa) * flen);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -1014,12 +1386,15 @@ function drawEnemy(e) {
     ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(nowT / 120));
   }
 
-  drawCharacterBody(e.x, e.y, e.facing, e.isBoss ? 0.82 + CONFIG.bossExtraPixels / 60 : 0.82, {
+  const moving = isEntityMoving(e, e.x, e.y);
+  drawCharacterBody(e.x, e.y, e.facing, e.isBoss ? 1.15 + CONFIG.bossExtraPixels / 60 : 1.05, {
     enemy: true,
     boss: e.isBoss,
     archer: e.type === "archer",
     flash: e.hitFlashUntil > nowT,
-    attacking: e.attackPhase === "windup" || e.attackPhase === "strike"
+    attacking: e.attackPhase === "windup" || e.attackPhase === "strike",
+    phase: e.attackPhase || null,
+    moving
   });
 
   const s = Camera.worldToScreen(e.x, e.y);
