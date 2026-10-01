@@ -31,7 +31,7 @@ O jogador tem 3 segundos de aviso para sair da zona antes que o dano de fogo pas
 - O intervalo de respawn é de 50s nas waves iniciais, 45s a partir da wave 5 e 30s a partir da wave 10.
 - Inimigos recebem +2% de vida e velocidade por onda após a primeira; comuns começam 5% mais rápidos.
 - O mercador vende o Melador por 50 moedas; ele cura 25% da vida máxima.
-- O mercador vende a Bomba de Fogo por 75 moedas. Ela é armazenada no inventário, pode ser selecionada com I e é lançada a 15px na direção do jogador. A área circular completa tem 20x20px (raio de 10px), fica visível por 5s e aplica 15% da vida máxima do NPC uma vez por segundo, sem duplicar ticks por frame; o NPC também recebe o estado visual de queimando.
+- O Mercador vende a Bomba de Fogo por 75 moedas. Ela é armazenada no inventário, pode ser selecionada com I e é lançada a 15px na direção do jogador. A área circular completa tem 20x20px (raio de 10px), fica visível por 5s e aplica 15% da vida máxima do NPC uma vez por segundo, sem duplicar ticks por frame; o NPC também recebe o estado visual de queimando.
 - Há cinco dashes por ciclo, com recarga de 30 segundos após o quinto.
 
 Abra index.html diretamente no navegador.
@@ -51,3 +51,9 @@ Abra index.html diretamente no navegador.
 - Removida a textura externa `desert-sertao.png`.
 - O chão voltou a usar uma textura procedural de areia seca, com granulação, marcas de vento, folhas secas e pequenos gravetos.
 - A textura é criada uma única vez e reutilizada para preservar o desempenho.
+
+## Freira e magias
+- A Freira fica no mapa e abre a loja de magias ao pressionar E perto dela. Ela vende Radii Divini e Corpus Custodia; a Bomba de Fogo, os demais itens e as roupas ficam apenas com o Mercador.
+- Radii Divini custa 75 moedas. Depois de aprender, selecione a magia no inventário (I) e pressione F para invocar um círculo à frente do jogador.
+- O círculo dura 5 segundos e invoca raios celestes contra inimigos dentro da área, causando 10% da vida máxima por impacto, a cada 900 ms. A magia não paralisa e tem recarga de 8 segundos.
+- Corpus Custodia custa 100 moedas por pergaminho e é equipada como arma com R. Acerte um inimigo com o botão esquerdo (modo Mouse) ou K (modo Teclado); o pergaminho é consumido no acerto. Após 2 segundos, um círculo mágico aparece no local atingido e paralisa os inimigos dentro da área por 5 segundos. Não é arremessável e não tem recarga; compre outro pergaminho na Freira após usá-lo.

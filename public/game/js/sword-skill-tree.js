@@ -185,6 +185,7 @@
     if (typeof paused !== "undefined" && paused) return;
     if (typeof settingsOpen !== "undefined" && settingsOpen) return;
     if (typeof merchantOpen !== "undefined" && merchantOpen) return;
+    if (typeof nunShopOpen !== "undefined" && nunShopOpen) return;
     if (typeof inventoryOpen !== "undefined" && inventoryOpen) return;
     if (typeof levelUpOpen !== "undefined" && levelUpOpen) return;
     event.preventDefault();

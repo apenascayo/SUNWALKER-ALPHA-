@@ -30,7 +30,7 @@
       } else {
         deathMusicHandled = false;
       }
-      const gameBlocked = typeof paused !== "undefined" && (paused || merchantOpen || inventoryOpen || levelUpOpen || settingsOpen);
+      const gameBlocked = typeof paused !== "undefined" && (paused || merchantOpen || nunShopOpen || inventoryOpen || levelUpOpen || settingsOpen);
       if (!gameBlocked && !player.isDead()) {
         if (lastPlayerX === null) { lastPlayerX = player.x; lastPlayerY = player.y; playerStillSince = now; }
         const moved = Math.hypot(player.x - lastPlayerX, player.y - lastPlayerY);

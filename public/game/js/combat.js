@@ -1,5 +1,5 @@
 let attackSequence = 0;
-let weaponMode = "sword"; // "sword" | "sheath" | "blunderbuss"
+let weaponMode = "sword"; // "sword" | "sheath" | "blunderbuss" | "corpusCustodia" | "radiiDivini"
 let isAiming = false;     // botao direito segurado para mirar
 
 const DIRECTION_VECTORS = {
@@ -39,23 +39,44 @@ function addReputation(amount, reason) {
 function tryPlayerAttack(type, now, directionOverride = null) {
   if (player.isDead() || player.isDefending()) return;
   if (type === "blunderbuss") return fireBlunderbuss(now, directionOverride || mouseDirection());
+  if (type === "radiiDivini") {
+    if (!hasRadiiDivini()) { showMessage("COMPRE RADII DIVINI COM A FREIRA"); weaponMode = "sword"; return; }
+    if (now < player.radiiDiviniCooldownUntil) return;
+    player.direction = directionOverride || player.direction;
+    createRadiiDiviniZone(now);
+    player.inventory.radiiDivini = Math.max(0, (player.inventory.radiiDivini || 0) - 1);
+    localStorage.setItem("sunwalker_radii_divini_count", String(player.inventory.radiiDivini));
+    player.owned.radiiDivini = player.inventory.radiiDivini > 0;
+    showMessage(player.owned.radiiDivini
+      ? "RADII DIVINI — CARGAS RESTANTES: " + player.inventory.radiiDivini
+      : "RADII DIVINI ESGOTADA — COMPRE MAIS COM A FREIRA");
+    if (!player.owned.radiiDivini) weaponMode = "sword";
+    return;
+  }
   if (player.attack || now < player.attackCooldownUntil) return;
+  if (type === "corpusCustodia" && (!player.inventory.corpusCustodia || player.inventory.corpusCustodia <= 0)) {
+    player.owned.corpusCustodia = false;
+    weaponMode = "sword";
+    showMessage("PERGAMINHO ESGOTADO — COMPRE OUTRO COM A FREIRA");
+    return;
+  }
   const isSword = type === "sword";
-  const cost = isSword ? CONFIG.swordStaminaCost : CONFIG.sheathStaminaCost;
+  const isCorpus = type === "corpusCustodia";
+  const cost = isCorpus ? 0 : isSword ? CONFIG.swordStaminaCost : CONFIG.sheathStaminaCost;
   if (player.stamina < cost) { showMessage("SEM STAMINA"); return; }
 
   player.stamina -= cost;
   player.staminaRegenBlockedUntil = now + CONFIG.staminaRegenDelay;
   player.attack = {
     type, startedAt: now,
-    duration: isSword ? CONFIG.swordDuration : CONFIG.sheathDuration,
+    duration: isCorpus ? CONFIG.corpusCustodiaAttackDurationMs : isSword ? CONFIG.swordDuration : CONFIG.sheathDuration,
     hitApplied: false, id: ++attackSequence,
     direction: directionOverride || player.direction
   };
   player.direction = player.attack.direction;
-  player.attackCooldownUntil = now + (isSword ? CONFIG.swordCooldown : CONFIG.sheathCooldown);
+  player.attackCooldownUntil = now + (isCorpus ? CONFIG.corpusCustodiaAttackDurationMs : isSword ? CONFIG.swordCooldown : CONFIG.sheathCooldown);
   player.state = "attacking";
-  playSound(isSword ? "sword" : "sheath");
+  playSound(isCorpus ? "magic" : isSword ? "sword" : "sheath");
 }
 
 function getBlunderbussTarget(direction = mouseDirection()) {
@@ -146,6 +167,55 @@ function playerAttackHit(now) {
   if (now - attack.startedAt < attack.duration * 0.42) return;
   attack.hitApplied = true;
   const sword = attack.type === "sword";
+  const corpusCustodia = attack.type === "corpusCustodia";
+  if (corpusCustodia) {
+    const vector = directionVector(attack.direction);
+    const vectorLength = Math.hypot(vector.x, vector.y) || 1;
+    const dx = vector.x / vectorLength;
+    const dy = vector.y / vectorLength;
+    let target = null;
+    let targetDistance = CONFIG.corpusCustodiaAttackRangeWorld;
+    for (const enemy of enemies) {
+      if (enemy.isDead()) continue;
+      const offsetX = enemy.x - player.x;
+      const offsetY = enemy.y - player.y;
+      const forward = offsetX * dx + offsetY * dy;
+      const side = Math.abs(offsetX * dy - offsetY * dx);
+      if (forward <= 0 || forward > targetDistance || side > CONFIG.corpusCustodiaAttackWidthWorld) continue;
+      target = enemy;
+      targetDistance = forward;
+    }
+    if (!target) {
+      showMessage("PERGAMINHO ERROU — NENHUM INIMIGO ATINGIDO");
+      return;
+    }
+    target.lastDamageId = attack.id;
+    target.hitFlashUntil = now + 180;
+    target.attackPhase = null;
+    target.staggerUntil = now + 300;
+    target.state = "hurt";
+    target.hurtUntil = target.staggerUntil;
+    spawnHitSpark(target.x, target.y, now, "lightning");
+    corpusCustodiaCircles.push({
+      x: target.x,
+      y: target.y,
+      radius: CONFIG.corpusCustodiaRadiusWorld,
+      createdAt: now,
+      armedAt: now + CONFIG.corpusCustodiaArmDelayMs,
+      end: now + CONFIG.corpusCustodiaArmDelayMs + CONFIG.corpusCustodiaDurationMs,
+      nextStunAt: Object.create(null)
+    });
+    player.inventory.corpusCustodia = Math.max(0, player.inventory.corpusCustodia - 1);
+    localStorage.setItem("sunwalker_corpus_custodia_count", String(player.inventory.corpusCustodia));
+    player.owned.corpusCustodia = player.inventory.corpusCustodia > 0;
+    if (!player.owned.corpusCustodia) weaponMode = "sword";
+    showMessage(player.owned.corpusCustodia
+      ? "CORPUS CUSTODIA ATIVADA — PERGAMINHOS RESTANTES: " + player.inventory.corpusCustodia
+      : "CORPUS CUSTODIA ATIVADA — PERGAMINHO CONSUMIDO");
+    refreshNunShopUI();
+    refreshInventoryUI();
+    return;
+  }
   const range = Math.max(CONFIG.attackCircleRadius, sword ? CONFIG.swordRange : CONFIG.sheathRange);
   const skillDamage = sword && typeof getSwordSkillDamageMultiplier === "function" ? getSwordSkillDamageMultiplier() : 1;
   const damage = (sword ? CONFIG.swordDamage : CONFIG.sheathDamage) * player.statMultipliers.attack * skillDamage;
@@ -176,6 +246,11 @@ function playerAttackHit(now) {
           enemy.lightningSourceAttack = attack.id;
           enemy.swordElement = "lightning";
           enemy.swordElementStage = lightningStage;
+          spawnHitSpark(enemy.x, enemy.y, now, "lightning");
+          if (!attack.magicSoundPlayed) {
+            playSound("magic");
+            attack.magicSoundPlayed = true;
+          }
           if (lightningStage >= 5) {
             const radius = typeof getSwordSkillAreaRadius === "function" ? getSwordSkillAreaRadius("lightning") : 1.9;
             for (const other of enemies) {
@@ -186,6 +261,7 @@ function playerAttackHit(now) {
                 other.lightningSourceAttack = attack.id;
                 other.swordElement = "lightning";
                 other.swordElementStage = lightningStage;
+                spawnHitSpark(other.x, other.y, now, "lightning");
               }
             }
           }
@@ -195,6 +271,11 @@ function playerAttackHit(now) {
           enemy.burnNextTick = now + 1000;
           enemy.swordElement = "fire";
           enemy.swordElementStage = fireStage;
+          spawnHitSpark(enemy.x, enemy.y, now, "fire");
+          if (!attack.magicSoundPlayed) {
+            playSound("magic");
+            attack.magicSoundPlayed = true;
+          }
           if (fireStage >= 5) {
             const radius = typeof getSwordSkillAreaRadius === "function" ? getSwordSkillAreaRadius("fire") : 1.65;
             for (const other of enemies) {
@@ -204,6 +285,7 @@ function playerAttackHit(now) {
                 other.burnNextTick = now + 1000;
                 other.swordElement = "fire";
                 other.swordElementStage = fireStage;
+                spawnHitSpark(other.x, other.y, now, "fire");
               }
             }
           }
@@ -342,10 +424,18 @@ function updatePlayerCombat(now, dt) {
   if (Input.consume("r")) {
     const modes = ["sword", "sheath"];
     if (player.owned && player.owned.blunderbuss) modes.push("blunderbuss");
+    if (hasRadiiDivini()) modes.push("radiiDivini");
+    if (player.inventory.corpusCustodia > 0) modes.push("corpusCustodia");
     let index = modes.indexOf(weaponMode);
     if (index < 0) index = 0;
     weaponMode = modes[(index + 1) % modes.length];
-    showMessage(weaponMode === "sword" ? "ESPADA" : weaponMode === "sheath" ? "BAINHA" : "TRABUCO — MIRE COM O BOTÃO DIREITO");
+    const weaponLabels = {
+      sword: "ESPADA", sheath: "BAINHA",
+      blunderbuss: "TRABUCO — MIRE COM O BOTÃO DIREITO",
+      radiiDivini: `RADII DIVINI — ${player.inventory.radiiDivini || 0} CARGA(S)`,
+      corpusCustodia: `CORPUS CUSTODIA — ${player.inventory.corpusCustodia} PERGAMINHO(S)`
+    };
+    showMessage(weaponLabels[weaponMode]);
   }
 
   if (mode === "mouse" || weaponMode === "blunderbuss") {
