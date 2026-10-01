@@ -6,56 +6,53 @@ const PLAYER_SPRITE_CONFIG = {
   renderWidth: 72,
   renderHeight: 72,
   directions: ["up", "upRight", "right", "downRight", "down", "downLeft", "left", "upLeft"],
-  sheets: {
-    sword: { src: "assets/player_sword.png", rows: 5 },
-    sheath: { src: "assets/player_sheath.png", rows: 5 },
-    trabuco: { src: "assets/player_trabuco.png", rows: 5 },
-    idle: { src: "assets/player_idle.png", rows: 4 }
-  }
-};
+  sheet: { src: "assets/player_sprites.png", frameWidth: 48, frameHeight: 48, columns: 8 },
+  rows: { sword: 5, sheath: 5, trabuco: 5, idle: 4 },
+  // Source layout: sword 0-4, sheath 0-4, trabuco 0-4, idle 0-3.
+  // The four panels are extracted into a single 8-column runtime sheet.
 
-const playerSpriteImages = {};
-const playerSpriteState = {};
-
-(function preloadPlayerSprites() {
-  for (const [name, cfg] of Object.entries(PLAYER_SPRITE_CONFIG.sheets)) {
-    const image = new Image();
-    playerSpriteImages[name] = image;
-    playerSpriteState[name] = "loading";
-    image.onload = () => { playerSpriteState[name] = "ready"; };
-    image.onerror = () => { playerSpriteState[name] = "missing"; };
-    image.src = cfg.src;
-  }
-})();
+const playerSpriteImage = new Image();
+let playerSpriteReady = false;
+playerSpriteImage.onload = () => { playerSpriteReady = true; };
+playerSpriteImage.onerror = () => { playerSpriteReady = false; };
+playerSpriteImage.src = PLAYER_SPRITE_CONFIG.sheet.src;
 
 function playerSpriteSheetFor(player) {
-  if (player.attack && PLAYER_SPRITE_CONFIG.sheets[player.attack.type]) return player.attack.type;
+  if (player.attack && PLAYER_SPRITE_CONFIG.rows[player.attack.type]) return player.attack.type;
   if (typeof weaponMode === "string" && weaponMode === "trabuco") return "trabuco";
   return "idle";
 }
 
 function playerSpriteFrame(sheetName, player, now) {
-  const cfg = PLAYER_SPRITE_CONFIG.sheets[sheetName];
-  if (!cfg) return 0;
+  const rows = PLAYER_SPRITE_CONFIG.rows[sheetName] || 1;
   if (player.attack && player.attack.type === sheetName) {
     const duration = Math.max(1, player.attack.duration || 1);
     const progress = Math.max(0, Math.min(0.999, (now - player.attack.startedAt) / duration));
-    return Math.min(cfg.rows - 1, Math.floor(progress * cfg.rows));
+    return Math.min(rows - 1, Math.floor(progress * rows));
   }
-  return Math.floor(now / 150) % cfg.rows;
+  return Math.floor(now / 150) % rows;
 }
 
 function drawPlayerSprite(p) {
   const sheetName = playerSpriteSheetFor(p);
-  const image = playerSpriteImages[sheetName];
-  if (!image || playerSpriteState[sheetName] !== "ready") return false;
+  const image = playerSpriteImage;
+  if (!image || !playerSpriteReady) return false;
 
-  const cfg = PLAYER_SPRITE_CONFIG.sheets[sheetName];
+  const cfg = PLAYER_SPRITE_CONFIG.sheet;
   const directionIndex = Math.max(0, PLAYER_SPRITE_CONFIG.directions.indexOf(p.direction));
   const now = performance.now();
   const row = playerSpriteFrame(sheetName, p, now);
   const sx = directionIndex * PLAYER_SPRITE_CONFIG.frameWidth;
-  const sy = row * PLAYER_SPRITE_CONFIG.frameHeight;
+  // The source image is the complete 1536x1024 reference sheet.
+  // Panel offsets point at the four animation grids inside it.
+  const panel = {
+    sword: { x: 48, y: 114 },
+    sheath: { x: 853, y: 114 },
+    trabuco: { x: 48, y: 629 },
+    idle: { x: 848, y: 635 }
+  }[sheetName];
+  const sx = panel.x + directionIndex * cfg.frameWidth;
+  const sy = panel.y + row * cfg.frameHeight;
   const s = Camera.worldToScreen(p.x, p.y);
 
   ctx.save();
