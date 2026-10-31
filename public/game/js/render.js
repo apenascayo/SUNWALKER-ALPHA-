@@ -419,33 +419,27 @@ function drawCharacterBody(x, y, dir, baseScale, opts = {}) {
 
 function drawAimRing(p) {
   if (getAttackControlMode() !== "mouse" || p.isDead()) return;
-  const active = isAiming || !!p.attack;
   const s = Camera.worldToScreen(p.x, p.y);
   const cy = s.y - 12;
-  const radius = CONFIG.attackCircleRadius * (tileW() / 2) * Math.SQRT2;
-  const ang = Math.atan2(Input.mouseY - cy, Input.mouseX - s.x);
+  const aim = p.attack?.aimVector || mouseAimVector();
+  const angle = Math.atan2(aim.y + aim.x, aim.x - aim.y);
+  const range = (p.attack?.type === "sheath" ? CONFIG.sheathRange : CONFIG.swordRange) * (tileW() / 2);
+  const active = isAiming || !!p.attack;
+  const color = (p.attack?.type || weaponMode) === "sheath" ? "230,200,140" : "150,220,255";
+  const half = (CONFIG.meleeConeAngle * Math.PI / 180) / 2;
 
   ctx.save();
-  ctx.strokeStyle = active ? "rgba(200,220,255,.4)" : "rgba(200,220,255,.18)";
-  ctx.lineWidth = 1.2;
+  ctx.translate(s.x, cy);
+  ctx.rotate(angle);
+  ctx.fillStyle = active ? `rgba(${color},.12)` : "rgba(200,220,255,.035)";
+  ctx.strokeStyle = active ? `rgba(${color},.75)` : "rgba(200,220,255,.22)";
+  ctx.lineWidth = active ? 2 : 1;
   ctx.beginPath();
-  ctx.ellipse(s.x, cy, radius, radius * 0.5, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  if (!active) { ctx.restore(); return; }
-
-  const attackType = p.attack ? p.attack.type : weaponMode;
-  ctx.strokeStyle = attackType === "sheath" ? "rgba(230,200,140,.95)" : "rgba(150,220,255,.95)";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.ellipse(s.x, cy, radius, radius * 0.55, 0, ang - 0.45, ang + 0.45);
-  ctx.stroke();
-
-  const mx = s.x + Math.cos(ang) * radius;
-  const my = cy + Math.sin(ang) * radius * 0.55;
-  ctx.fillStyle = "rgba(255,255,255,.9)";
-  ctx.beginPath();
-  ctx.arc(mx, my, 3.5, 0, Math.PI * 2);
+  ctx.moveTo(0, 0);
+  ctx.ellipse(0, 0, range, range * 0.5, 0, -half, half);
+  ctx.closePath();
   ctx.fill();
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -524,24 +518,22 @@ function drawPlayer(p) {
 
   if (p.attack) {
     const s = Camera.worldToScreen(p.x, p.y);
+    const aim = p.attack.aimVector || directionVector(p.attack.direction);
+    const angle = Math.atan2(aim.y + aim.x, aim.x - aim.y);
     const isSword = p.attack.type === "sword";
-    ctx.fillStyle = isSword ? "rgba(220,235,255,.22)" : "rgba(220,190,130,.20)";
+    const length = (isSword ? CONFIG.swordRange : CONFIG.sheathRange) * (tileW() / 2);
+    ctx.save();
+    ctx.translate(s.x, s.y - 12);
+    ctx.rotate(angle);
+    ctx.strokeStyle = isSword ? "rgba(220,235,255,.9)" : "rgba(230,200,140,.9)";
+    ctx.lineWidth = isSword ? 5 : 7;
+    ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.arc(s.x, s.y - 12, isSword ? 65 : 55, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = isSword ? "rgba(220,235,255,.12)" : "rgba(220,190,130,.10)";
-    ctx.beginPath();
-    ctx.arc(s.x, s.y - 12, isSword ? 85 : 75, 0, Math.PI * 2);
-    ctx.fill();
-    const now = performance.now();
-    const pulse = Math.sin(now / 100) * 0.3 + 0.7;
-    ctx.strokeStyle = isSword ? `rgba(220,235,255,${0.4 * pulse})` : `rgba(220,190,130,${0.4 * pulse})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(s.x, s.y - 12, isSword ? 70 : 60, 0, Math.PI * 2);
+    ctx.arc(length * 0.48, 0, length * 0.48, -0.8, 0.8);
     ctx.stroke();
+    ctx.restore();
   }
-  
+
   if (p.isRunning) {
     const s = Camera.worldToScreen(p.x, p.y);
     ctx.strokeStyle = "rgba(255,200,100,.3)";
