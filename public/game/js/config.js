@@ -72,8 +72,8 @@ const CONFIG = {
   dashCooldown: 300,     // ms entre dashes
   dashStaminaCost: 12,
 
-  // Campo de acerto: qualquer inimigo dentro deste c?rculo pode ser atingido
-  attackCircleRadius: 1.6,
+  // Golpes corpo a corpo: alcance frontal e abertura do cone direcional.
+  meleeConeAngle: 52,
 
   // Defesa (Alpha 1.2)
   defenseStaminaDrain: 2,      // % da stamina m?xima por segundo enquanto defende
