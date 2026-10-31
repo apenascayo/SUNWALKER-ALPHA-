@@ -18,15 +18,21 @@ function normalizedDirection(x, y) {
   }[`${nx},${ny}`] || player.direction;
 }
 
-function mouseDirection() {
+function mouseAimVector() {
   const p = Camera.worldToScreen(player.x, player.y);
   const sx = Input.mouseX - p.x;
   const sy = Input.mouseY - (p.y - 12);
-  if (Math.hypot(sx, sy) < 4) return player.direction;
-  // Inverse of the isometric projection: sx=dx-dy, sy=(dx+dy)/2.
+  if (Math.hypot(sx, sy) < 4) return directionVector(player.direction);
+  // Inverte a projeção isométrica para obter a direção real no mundo.
   const wx = sx / 2 + sy;
   const wy = sy - sx / 2;
-  return normalizedDirection(wx, wy);
+  const length = Math.hypot(wx, wy) || 1;
+  return { x: wx / length, y: wy / length };
+}
+
+function mouseDirection() {
+  const aim = mouseAimVector();
+  return normalizedDirection(aim.x, aim.y);
 }
 
 function addReputation(amount, reason) {
@@ -36,7 +42,7 @@ function addReputation(amount, reason) {
   if (delta) showMessage(`${reason} ${delta > 0 ? "+" : ""}${delta} REPUTAÇÃO`);
 }
 
-function tryPlayerAttack(type, now, directionOverride = null) {
+function tryPlayerAttack(type, now, directionOverride = null, aimOverride = null) {
   if (player.isDead() || player.isDefending()) return;
   if (player.attack || now < player.attackCooldownUntil) return;
   const isSword = type === "sword";
@@ -49,7 +55,8 @@ function tryPlayerAttack(type, now, directionOverride = null) {
     type, startedAt: now,
     duration: isSword ? CONFIG.swordDuration : CONFIG.sheathDuration,
     hitApplied: false, id: ++attackSequence,
-    direction: directionOverride || player.direction
+    direction: directionOverride || player.direction,
+    aimVector: aimOverride || directionVector(directionOverride || player.direction)
   };
   player.direction = player.attack.direction;
   player.attackCooldownUntil = now + (isSword ? CONFIG.swordCooldown : CONFIG.sheathCooldown);
@@ -63,16 +70,21 @@ function playerAttackHit(now) {
   if (now - attack.startedAt < attack.duration * 0.42) return;
   attack.hitApplied = true;
   const sword = attack.type === "sword";
-  const range = Math.max(CONFIG.attackCircleRadius, sword ? CONFIG.swordRange : CONFIG.sheathRange);
+  const range = sword ? CONFIG.swordRange : CONFIG.sheathRange;
   const damage = (sword ? CONFIG.swordDamage : CONFIG.sheathDamage) * player.statMultipliers.attack;
-  const dir = directionVector(attack.direction);
+  const dir = attack.aimVector || directionVector(attack.direction);
+  const dirLength = Math.hypot(dir.x, dir.y) || 1;
+  const aimX = dir.x / dirLength, aimY = dir.y / dirLength;
+  const minDot = Math.cos((CONFIG.meleeConeAngle * Math.PI) / 180);
 
   for (const enemy of enemies) {
     if (enemy.isDead() || enemy.lastDamageId === attack.id) continue;
     const dx = enemy.x - player.x, dy = enemy.y - player.y;
-    // Campo circular: assim que o inimigo entra no círculo ao redor do player, ele pode ser atingido.
     const dist = Math.hypot(dx, dy);
-    if (dist <= range) {
+    if (dist > 0 && dist <= range) {
+      const forward = (dx * aimX + dy * aimY) / dist;
+      // Cone direcional: só acerta quem está à frente e dentro do ângulo do golpe.
+      if (forward < minDot) continue;
       enemy.lastDamageId = attack.id;
       if (sword) {
         damageEnemy(enemy, damage, dir.x * CONFIG.knockbackForce, dir.y * CONFIG.knockbackForce, now, "sword");
@@ -223,10 +235,11 @@ function updatePlayerCombat(now, dt) {
   if (mode === "mouse") {
     // Botao direito segurado = mirar; a direcao segue o mouse enquanto mira.
     isAiming = Input.mouseDown(2);
-    if (isAiming) player.direction = mouseDirection();
-    // Botao esquerdo = atacar com a arma selecionada.
+    // A direção do personagem acompanha o mouse; não exige segurar o botão direito.
+    player.direction = mouseDirection();
+    // Botão esquerdo ataca exatamente na direção atual do cursor.
     if (Input.consumeMouse(0)) {
-      tryPlayerAttack(weaponMode, now, isAiming ? mouseDirection() : player.direction);
+      tryPlayerAttack(weaponMode, now, mouseDirection(), mouseAimVector());
     }
   } else {
     isAiming = false;
